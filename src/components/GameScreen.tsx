@@ -57,7 +57,6 @@ export function GameScreen({
     boost: false
   })
   const pointerSteerRef = useRef(0)
-  const pointerActiveRef = useRef(false)
   const touchControlsRef = useRef({ brake: false, boost: false })
   const reportedRef = useRef(false)
   const [hud, setHud] = useState<GameSnapshot>(() => snapshotGame(gameRef.current))
@@ -229,7 +228,6 @@ export function GameScreen({
   }, [onExit])
 
   const updatePointer = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== 'mouse') pointerActiveRef.current = true
     const rect = event.currentTarget.getBoundingClientRect()
     const normalized = ((event.clientX - rect.left) / rect.width) * 2 - 1
     pointerSteerRef.current = clamp(normalized * 1.4)
@@ -283,11 +281,9 @@ export function GameScreen({
             updatePointer(event)
           }}
           onPointerUp={() => {
-            pointerActiveRef.current = false
             pointerSteerRef.current = 0
           }}
           onPointerCancel={() => {
-            pointerActiveRef.current = false
             pointerSteerRef.current = 0
           }}
         >

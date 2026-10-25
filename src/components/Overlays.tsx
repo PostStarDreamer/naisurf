@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   CHARACTERS,
-  DIFFICULTIES,
   MODES,
   getCharacter,
   getDifficulty,
@@ -482,5 +481,3 @@ export function ModeGuide({
     </Modal>
   )
 }
-
-export { DIFFICULTIES }
