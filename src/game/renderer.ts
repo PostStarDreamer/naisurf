@@ -9,7 +9,14 @@ let CANVAS_SCALE = 1
 
 export interface RenderAssets {
   characters: Partial<Record<CharacterId, HTMLImageElement>>
-  monster?: HTMLImageElement
+  surfCharacters: Partial<Record<CharacterId, HTMLImageElement>>
+  objects: Partial<Record<WorldObject['kind'], HTMLImageElement>>
+  monsterSide?: HTMLImageElement
+  monsterClosed?: HTMLImageElement
+  monsterMid?: HTMLImageElement
+  monsterOpen?: HTMLImageElement
+  monsterBite?: HTMLImageElement
+  monsterRecoil?: HTMLImageElement
   net?: HTMLImageElement
 }
 
@@ -27,19 +34,57 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 export async function loadRenderAssets(): Promise<RenderAssets> {
-  const characterEntries = await Promise.all(
-    CHARACTERS.map(async (character) => {
-      const image = await loadImage(assetUrl(character.image))
-      return [character.id, image] as const
-    })
-  )
-  const [monster, net] = await Promise.all([
-    loadImage(assetUrl('assets/monster.svg')),
-    loadImage(assetUrl('assets/net.svg'))
-  ])
+  const [characterEntries, surfEntries, objectEntries, monsterSide, monsterClosed, monsterMid, monsterOpen, monsterBite, monsterRecoil, net] =
+    await Promise.all([
+      Promise.all(
+        CHARACTERS.map(async (character) => {
+          const image = await loadImage(assetUrl(character.image))
+          return [character.id, image] as const
+        })
+      ),
+      Promise.all(
+        CHARACTERS.map(async (character) => {
+          const image = await loadImage(assetUrl(character.surfImage))
+          return [character.id, image] as const
+        })
+      ),
+      Promise.all(
+        (
+          [
+            ['rock', 'assets/objects/rock.svg'],
+            ['buoy', 'assets/objects/buoy.svg'],
+            ['surfer', 'assets/objects/rival.svg'],
+            ['coin', 'assets/objects/coin.svg'],
+            ['heart', 'assets/objects/heart.svg'],
+            ['boost', 'assets/objects/boost.svg'],
+            ['shield', 'assets/objects/shield.svg'],
+            ['slime', 'assets/objects/slime.svg']
+          ] as const
+        ).map(async ([kind, path]) => {
+          const image = await loadImage(assetUrl(path))
+          return [kind, image] as const
+        })
+      ),
+      loadImage(assetUrl('assets/monster-side.svg')),
+      loadImage(assetUrl('assets/monster-closed.svg')),
+      loadImage(assetUrl('assets/monster-mid.svg')),
+      loadImage(assetUrl('assets/monster-open.svg')),
+      loadImage(assetUrl('assets/monster.svg')),
+      loadImage(assetUrl('assets/monster-recoil.svg')),
+      loadImage(assetUrl('assets/net.svg'))
+    ])
   return {
     characters: Object.fromEntries(characterEntries),
-    monster,
+    surfCharacters: Object.fromEntries(surfEntries),
+    objects: Object.fromEntries(objectEntries) as Partial<
+      Record<WorldObject['kind'], HTMLImageElement>
+    >,
+    monsterSide,
+    monsterClosed,
+    monsterMid,
+    monsterOpen,
+    monsterBite,
+    monsterRecoil,
     net
   }
 }
@@ -387,40 +432,122 @@ function drawGate(
   ctx.restore()
 }
 
+const OBJECT_ART_SIZE: Partial<Record<WorldObject['kind'], [number, number]>> = {
+  rock: [58, 54],
+  buoy: [40, 64],
+  surfer: [54, 76],
+  coin: [32, 40],
+  heart: [32, 32],
+  boost: [32, 36],
+  shield: [38, 38],
+  slime: [40, 40]
+}
+
+function drawCategoryBadge(
+  ctx: CanvasRenderingContext2D,
+  kind: WorldObject['kind'],
+  x: number,
+  y: number,
+  scale: number
+): void {
+  const isItem = kind === 'coin' || kind === 'heart' || kind === 'boost' || kind === 'shield'
+  const isCoin = kind === 'coin'
+  const isDebuff = kind === 'slime'
+  const isHazard = !isItem && !isDebuff && kind !== 'gate'
+  if (!isHazard && !isItem && !isDebuff) return
+  const size = Math.max(7, 9 * scale)
+  const badgeY = y - (OBJECT_ART_SIZE[kind]?.[1] ?? 34) * scale - size * 0.7
+  ctx.save()
+  ctx.translate(Math.round(x), Math.round(badgeY))
+  ctx.fillStyle = isDebuff ? '#7b4fb3' : isItem ? '#fff0a8' : '#ef604f'
+  ctx.strokeStyle = '#3b3027'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.arc(0, 0, size, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = isDebuff || isHazard ? '#fff8df' : '#493b30'
+  ctx.font = `bold ${Math.max(6, Math.round(size * 1.25))}px monospace`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(isDebuff ? '−' : isCoin ? '◆' : isItem ? '+' : '!', 0, 1)
+  ctx.restore()
+}
+
 function drawObject(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   object: WorldObject,
-  settings: GameSettings
+  settings: GameSettings,
+  assets: RenderAssets
 ): void {
   const projected = project(object.x, object.z)
   if (object.kind === 'gate') {
     drawGate(ctx, object, projected.x, projected.y, projected.scale)
-  } else if (
-    object.kind === 'coin' ||
-    object.kind === 'heart' ||
-    object.kind === 'boost' ||
-    object.kind === 'shield'
-  ) {
-    drawItem(
-      ctx,
-      object,
-      projected.x,
-      projected.y,
-      projected.scale,
-      state.elapsed,
-      settings.highVisibility
-    )
   } else {
-    drawObstacle(
-      ctx,
-      object,
-      projected.x,
-      projected.y,
-      projected.scale,
-      state.elapsed,
-      settings.highVisibility
-    )
+    const image = assets.objects[object.kind]
+    const artSize = OBJECT_ART_SIZE[object.kind] ?? [36, 44]
+    const bob =
+      object.kind === 'slime' || object.kind === 'coin' || object.kind === 'heart'
+        ? Math.sin(state.elapsed * 5 + object.wobble) * 2 * projected.scale
+        : 0
+    if (image) {
+      const width = artSize[0] * projected.scale
+      const height = artSize[1] * projected.scale
+      ctx.drawImage(
+        image,
+        Math.round(projected.x - width / 2),
+        Math.round(projected.y - height + bob),
+        Math.round(width),
+        Math.round(height)
+      )
+    } else if (
+      object.kind === 'coin' ||
+      object.kind === 'heart' ||
+      object.kind === 'boost' ||
+      object.kind === 'shield' ||
+      object.kind === 'slime'
+    ) {
+      drawItem(
+        ctx,
+        object,
+        projected.x,
+        projected.y,
+        projected.scale,
+        state.elapsed,
+        settings.highVisibility
+      )
+    } else {
+      drawObstacle(
+        ctx,
+        object,
+        projected.x,
+        projected.y,
+        projected.scale,
+        state.elapsed,
+        settings.highVisibility
+      )
+    }
+    drawCategoryBadge(ctx, object.kind, projected.x, projected.y, projected.scale)
+    if (settings.highVisibility && object.z < 32) {
+      const collisionWidth = object.width * (WIDTH * 0.43)
+      ctx.strokeStyle =
+        object.kind === 'coin' ||
+        object.kind === 'heart' ||
+        object.kind === 'boost' ||
+        object.kind === 'shield'
+          ? 'rgba(255, 247, 196, .75)'
+          : object.kind === 'slime'
+            ? 'rgba(196, 144, 255, .75)'
+            : 'rgba(255, 107, 87, .8)'
+      ctx.lineWidth = 1.5
+      ctx.strokeRect(
+        projected.x - collisionWidth / 2,
+        projected.y - 24 * projected.scale,
+        collisionWidth,
+        28 * projected.scale
+      )
+    }
   }
 }
 
@@ -429,12 +556,18 @@ function drawNet(
   state: GameState,
   assets: RenderAssets
 ): void {
-  if (state.net.state !== 'armed' && state.net.state !== 'spent') return
+  if (
+    state.net.state !== 'armed' &&
+    state.net.state !== 'snapped' &&
+    state.net.state !== 'spent'
+  ) {
+    return
+  }
   const projected = project(state.net.x, state.net.z)
   if (projected.y < HORIZON || projected.y > HEIGHT + 30) return
   const scale = projected.scale * (state.net.state === 'spent' ? 1.06 : 1)
   ctx.save()
-  ctx.globalAlpha = state.net.state === 'spent' ? 0.65 : 1
+  ctx.globalAlpha = state.net.state === 'spent' ? 0.5 : 1
   if (assets.net) {
     ctx.drawImage(
       assets.net,
@@ -447,6 +580,21 @@ function drawNet(
   if (state.net.state === 'armed') {
     ctx.fillStyle = 'rgba(255, 244, 186, .22)'
     ctx.fillRect(projected.x - 34 * scale, projected.y - 6 * scale, 68 * scale, 3 * scale)
+    if (state.monster.state === 'chasing' && state.monster.gap < 24) {
+      ctx.strokeStyle = '#fff1a8'
+      ctx.lineWidth = Math.max(2, 3 * scale)
+      ctx.beginPath()
+      ctx.arc(projected.x, projected.y - 28 * scale, 35 * scale, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+  } else if (state.net.state === 'snapped') {
+    ctx.fillStyle = '#fff6cb'
+    ctx.strokeStyle = '#3f3327'
+    ctx.lineWidth = 2
+    ctx.font = `bold ${Math.max(8, Math.round(10 * scale))}px monospace`
+    ctx.textAlign = 'center'
+    ctx.strokeText('捕获！+10 奶币', projected.x, projected.y - 66 * scale)
+    ctx.fillText('捕获！+10 奶币', projected.x, projected.y - 66 * scale)
   }
   ctx.restore()
 }
@@ -456,17 +604,17 @@ function drawLurkingMonster(
   state: GameState,
   assets: RenderAssets
 ): void {
-  if (state.monster.state !== 'lurking' || !assets.monster) return
+  if (state.monster.state !== 'lurking' || !assets.monsterSide) return
   const projected = project(state.monster.x, state.monster.z)
   const scale = projected.scale * 1.08
   ctx.save()
   ctx.globalAlpha = 0.88
   ctx.drawImage(
-    assets.monster,
+    assets.monsterSide,
     Math.round(projected.x - 45 * scale),
     Math.round(projected.y - 88 * scale),
-    Math.round(90 * scale),
-    Math.round(90 * scale)
+    Math.round(96 * scale),
+    Math.round(96 * scale)
   )
   ctx.restore()
 
@@ -480,7 +628,7 @@ function drawLurkingMonster(
     ctx.fillStyle = '#4a3627'
     ctx.font = 'bold 10px monospace'
     ctx.textAlign = 'center'
-    ctx.fillText('靠过来…', projected.x, bubbleY - 2)
+    ctx.fillText('靠近会追你', projected.x, bubbleY - 2)
   }
 }
 
@@ -489,14 +637,35 @@ function drawChasingMonster(
   state: GameState,
   assets: RenderAssets
 ): void {
-  if (state.monster.state !== 'chasing' || !assets.monster) return
-  const closeness = Math.max(0.08, Math.min(1, 1 - state.monster.gap / 82))
+  const visible =
+    state.monster.state === 'chasing' ||
+    state.monster.state === 'recoiling' ||
+    (state.monster.state === 'captured' && state.monster.age < 0.9)
+  if (!visible) return
+  const closeness =
+    state.monster.state === 'recoiling'
+      ? Math.max(0.3, 0.92 - state.monster.age * 0.45)
+      : state.monster.state === 'captured'
+        ? 0.62
+        : Math.max(0.08, Math.min(1, 1 - state.monster.gap / 82))
   const size = (76 + closeness * 138) * Math.max(0.82, CANVAS_SCALE)
   const x = WIDTH / 2 + state.monster.x * WIDTH * 0.2 + Math.sin(state.elapsed * 4) * 8
   const y = HEIGHT - size * 0.32 + (1 - closeness) * 34
   ctx.save()
   ctx.globalAlpha = 0.38 + closeness * 0.62
-  ctx.drawImage(assets.monster, x - size / 2, y - size, size, size)
+  const frames = [
+    assets.monsterClosed,
+    assets.monsterMid,
+    assets.monsterOpen,
+    assets.monsterBite
+  ]
+  const monsterImage =
+    state.monster.state === 'recoiling' || state.monster.state === 'captured'
+      ? assets.monsterRecoil
+      : frames[state.monster.animationFrame] ?? assets.monsterClosed
+  if (monsterImage) {
+    ctx.drawImage(monsterImage, x - size / 2, y - size, size, size)
+  }
   ctx.restore()
 
   if (closeness > 0.6) {
@@ -522,7 +691,7 @@ function drawPlayer(
 ): void {
   const projected = project(state.playerX, 0)
   const y = Math.min(HEIGHT - 12, projected.y + 8)
-  const baseSize = state.secretEventActive ? 82 : 57
+  const baseSize = state.secretEventActive ? 88 : 68
   const size = baseSize * Math.max(0.88, CANVAS_SCALE)
   const lean = Math.max(-0.18, Math.min(0.18, state.playerVelocity * 0.12))
   ctx.save()
@@ -543,7 +712,7 @@ function drawPlayer(
   ctx.stroke()
 
   const image =
-    assets.characters[state.secretEventActive ? 'frog' : state.config.character]
+    assets.surfCharacters[state.secretEventActive ? 'frog' : state.config.character]
   if (image) {
     ctx.drawImage(image, -size * 0.35, -size * 0.92, size * 0.7, size * 0.88)
   }
@@ -560,7 +729,52 @@ function drawPlayer(
       ctx.fillRect(-24 - index * 10, -18 + index * 11, 18, 3)
     }
   }
+  if (state.debuffTimer > 0) {
+    ctx.fillStyle = 'rgba(120, 72, 166, .35)'
+    for (let index = 0; index < 4; index++) {
+      ctx.beginPath()
+      ctx.arc(-14 + index * 9, -8 - Math.sin(state.elapsed * 5 + index) * 8, 4, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
   ctx.restore()
+}
+
+function drawMotionFeedback(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const player = project(state.playerX, 0)
+  const y = Math.min(HEIGHT - 16, player.y + 4)
+  if (state.motionState === 'accelerating') {
+    ctx.strokeStyle = 'rgba(225, 255, 235, .7)'
+    ctx.lineWidth = 2
+    for (let index = 0; index < 4; index++) {
+      const offset = 20 + index * 13
+      ctx.beginPath()
+      ctx.moveTo(player.x + offset, y - 8)
+      ctx.lineTo(player.x + offset + 12, y - 8)
+      ctx.stroke()
+    }
+  } else if (state.motionState === 'braking') {
+    ctx.fillStyle = 'rgba(255, 248, 218, .82)'
+    for (let index = 0; index < 7; index++) {
+      const angle = Math.PI + (index / 6) * Math.PI
+      ctx.fillRect(
+        player.x + Math.cos(angle) * (24 + index * 2),
+        y - 4 + Math.sin(angle) * 10,
+        5,
+        3
+      )
+    }
+  }
+  if (state.damageNoticeTimer > 0 && state.lastDamage) {
+    ctx.fillStyle = state.lastDamage === 'monster' ? '#ff605e' : '#ffd55d'
+    ctx.strokeStyle = '#3a3027'
+    ctx.lineWidth = 3
+    ctx.font = 'bold 17px monospace'
+    ctx.textAlign = 'center'
+    const text = state.lastDamage === 'monster' ? '−2 奶怪撞击' : '−1 障碍碰撞'
+    ctx.strokeText(text, player.x, y - 88 - (1 - state.damageNoticeTimer) * 10)
+    ctx.fillText(text, player.x, y - 88 - (1 - state.damageNoticeTimer) * 10)
+  }
 }
 
 function drawOverlayEffects(
@@ -614,11 +828,12 @@ export function renderGame(
 
   drawBackground(ctx, state)
   const sorted = [...state.objects].sort((a, b) => b.z - a.z)
-  for (const object of sorted) drawObject(ctx, state, object, settings)
-  drawNet(ctx, state, assets)
+  for (const object of sorted) drawObject(ctx, state, object, settings, assets)
   drawLurkingMonster(ctx, state, assets)
   drawChasingMonster(ctx, state, assets)
+  drawNet(ctx, state, assets)
   drawPlayer(ctx, state, assets)
+  drawMotionFeedback(ctx, state)
   drawOverlayEffects(ctx, state, settings)
 
   if (!settings.reducedMotion) ctx.restore()

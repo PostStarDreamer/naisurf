@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 120">
+  <g shape-rendering="crispEdges" stroke="#3e3326" stroke-width="3" stroke-linejoin="round">
+    <path d="M8 35C8 14 20 7 35 15c6 3 10 8 12 15" fill="#ffcb4c"/>
+    <path d="M88 35C88 14 76 7 61 15c-6 3-10 8-12 15" fill="#ffcb4c"/>
+    <path d="M17 37c0-10 6-17 13-15 8 2 11 8 12 16" fill="#f6b67f"/>
+    <path d="M79 37c0-10-6-17-13-15-8 2-11 8-12 16" fill="#f6b67f"/>
+    <path d="M19 70c0-27 10-38 29-38s29 11 29 38c0 29-10 38-29 38S19 99 19 70z" fill="#ffd84f"/>
+    <path d="M23 86c8 18 38 20 51 0-1 18-11 22-26 22-14 0-23-5-25-22z" fill="#e9b635" stroke="none"/>
+    <ellipse cx="37" cy="57" rx="6.5" ry="8" fill="#f9f0d2"/>
+    <ellipse cx="59" cy="57" rx="6.5" ry="8" fill="#f9f0d2"/>
+    <circle cx="37" cy="59" r="3.3" fill="#183d3e" stroke="none"/>
+    <circle cx="59" cy="59" r="3.3" fill="#183d3e" stroke="none"/>
+    <path d="M41 75c4 3 10 3 14 0" fill="none" stroke-width="2"/>
+    <path d="M75 93c14 2 15 14 4 15-7 1-10-3-9-7" fill="none" stroke="#c78b45" stroke-width="3"/>
+    <path d="M26 34c-4-9-1-14 5-15M70 34c4-9 1-14-5-15" fill="none" stroke="#fff0bf" stroke-width="2"/>
+    <path d="M10 107h76l-8 8H18z" fill="#6bd6c1"/>
+    <path d="M20 111h56" stroke="#fff5d2" stroke-width="2"/>
+  </g>
+</svg>

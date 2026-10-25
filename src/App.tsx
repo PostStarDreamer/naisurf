@@ -10,6 +10,7 @@ import {
 } from './components/Overlays'
 import {
   CHARACTERS,
+  CURRENT_GUIDE_VERSION,
   DIFFICULTIES,
   MODES,
   formatScore,
@@ -21,6 +22,7 @@ import {
 } from './data'
 import {
   applyRunResult,
+  creditCaptureReward,
   loadSave,
   persistSave,
   resetAll,
@@ -170,7 +172,7 @@ export function App() {
 
   const startRun = useCallback(() => {
     void audio.startMusic()
-    if (!save.tutorialSeen) {
+    if (!save.tutorialSeen || (save.guideVersion ?? 0) < CURRENT_GUIDE_VERSION) {
       setPendingStart(true)
       setTutorialOpen(true)
       return
@@ -178,10 +180,14 @@ export function App() {
     setResult(null)
     setRunId((value) => value + 1)
     setScreen('game')
-  }, [audio, save.tutorialSeen])
+  }, [audio, save.guideVersion, save.tutorialSeen])
 
   const beginAfterTutorial = () => {
-    setSave((current) => ({ ...current, tutorialSeen: true }))
+    setSave((current) => ({
+      ...current,
+      tutorialSeen: true,
+      guideVersion: CURRENT_GUIDE_VERSION
+    }))
     setTutorialOpen(false)
     setPendingStart(false)
     setResult(null)
@@ -209,6 +215,14 @@ export function App() {
       })
     },
     []
+  )
+
+  const handleCaptureReward = useCallback(
+    (amount: number) => {
+      setSave((current) => creditCaptureReward(current, amount))
+      showToast(`捕获奶怪！奶币 +${amount}`)
+    },
+    [showToast]
   )
 
   const selectCharacter = (character: CharacterId) => {
@@ -281,6 +295,7 @@ export function App() {
           settings={save.settings}
           audio={audio}
           onFinish={handleFinish}
+          onCaptureReward={handleCaptureReward}
           onExit={() => {
             setScreen('home')
             setResult(null)
@@ -366,7 +381,7 @@ export function App() {
             <img
               className="hero-monster"
               src={`${import.meta.env.BASE_URL}assets/monster.svg`}
-              alt="猎奇奶怪"
+              alt="蓝灰鲨鱼奶怪"
             />
             <div className="character-spotlight">
               <div className="spotlight-ring" />
@@ -519,7 +534,7 @@ export function App() {
           <div className="monster-art">
             <img
               src={`${import.meta.env.BASE_URL}assets/monster.svg`}
-              alt="奶蛙与巨齿鲨融合的奶怪"
+              alt="蓝灰鲨鱼奶怪的三视图风格像素形象"
             />
             <div className="monster-stamp">DANGER<br />WET</div>
           </div>
@@ -527,8 +542,8 @@ export function App() {
             <span className="tiny-label">CREATURE FILE / 001</span>
             <h2>它笑起来<br />有好几排牙。</h2>
             <p>
-              “奶怪”顶着奶蛙的脸，裂开巨齿鲨的竖嘴。它先安静地泡在浪边，
-              等你路过才猛然追来。别硬拼，把它引向海面的渔网。
+              蓝灰色的巨齿鲨奶怪挺着奶油圆肚，侧鳃轻轻开合。它先安静地泡在浪边，
+              等你进入感应范围才猛然追来；追击时会不断张嘴咬合。
             </p>
             <div className="monster-facts">
               <div><strong>潜伏</strong><span>靠近才触发</span></div>
@@ -547,8 +562,8 @@ export function App() {
             <strong>第一次冲浪？</strong>
           </div>
           <div className="tip-item"><span>01</span><p><strong>贴近浪门</strong>连续穿门，发夹弯分数才会涨。</p></div>
-          <div className="tip-item"><span>02</span><p><strong>存一点冲刺</strong>奶怪靠近时再按 F，别把能量提前烧光。</p></div>
-          <div className="tip-item"><span>03</span><p><strong>记住渔网</strong>网只困住当前奶怪，后面还会有新的追上来。</p></div>
+          <div className="tip-item"><span>02</span><p><strong>存一点冲刺</strong>奶怪靠近时再按 F 或底部闪电，别把能量提前烧光。</p></div>
+          <div className="tip-item"><span>03</span><p><strong>分清标识</strong>珊瑚红“!”是障碍，黄色“+”是增益，紫色“−”是减速。</p></div>
         </section>
       </main>
 
@@ -558,7 +573,7 @@ export function App() {
         <div>
           {installPrompt && <button onClick={installPwa}>安装到设备</button>}
           <button onClick={() => setGuideOpen(true)}>玩法说明</button>
-          <span>v1.0</span>
+          <span>v1.1</span>
         </div>
       </footer>
 

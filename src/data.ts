@@ -17,7 +17,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     tradeoff: '冲刺能量收益 -8%',
     price: 0,
     accent: '#ffd84f',
-    image: 'assets/characters/egg.svg'
+    image: 'assets/portraits/egg.svg',
+    surfImage: 'assets/characters/egg-surf.svg'
   },
   {
     id: 'mouse',
@@ -27,7 +28,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     tradeoff: '加速响应 -5%',
     price: 60,
     accent: '#f4bd62',
-    image: 'assets/characters/mouse.svg'
+    image: 'assets/portraits/mouse.svg',
+    surfImage: 'assets/characters/mouse-surf.svg'
   },
   {
     id: 'chicken',
@@ -37,7 +39,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     tradeoff: '转向响应 -5%',
     price: 120,
     accent: '#f57955',
-    image: 'assets/characters/chicken.svg'
+    image: 'assets/portraits/chicken.svg',
+    surfImage: 'assets/characters/chicken-surf.svg'
   },
   {
     id: 'dog',
@@ -47,7 +50,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     tradeoff: '初始冲刺能量 -10%',
     price: 180,
     accent: '#f4c172',
-    image: 'assets/characters/dog.svg'
+    image: 'assets/portraits/dog.svg',
+    surfImage: 'assets/characters/dog-surf.svg'
   },
   {
     id: 'frog',
@@ -57,11 +61,13 @@ export const CHARACTERS: CharacterDefinition[] = [
     tradeoff: '常规最高速度 -6%',
     price: 240,
     accent: '#ffcf45',
-    image: 'assets/characters/frog.svg'
+    image: 'assets/portraits/frog.svg',
+    surfImage: 'assets/characters/frog-surf.svg'
   }
 ]
 
 export const UNLOCK_ORDER: CharacterId[] = ['egg', 'mouse', 'chicken', 'dog', 'frog']
+export const CURRENT_GUIDE_VERSION = 1
 
 export const MODES: ModeDefinition[] = [
   {
@@ -105,10 +111,9 @@ export const DIFFICULTIES: DifficultyDefinition[] = [
     description: '浪面宽、障碍疏，适合先熟悉手感。',
     speed: 0.85,
     spacing: 1.25,
+    rampGain: 0.1,
     monsterPressure: 0.84,
-    reward: 1,
-    startLives: 4,
-    maxLives: 5
+    reward: 1
   },
   {
     id: 'medium',
@@ -116,10 +121,9 @@ export const DIFFICULTIES: DifficultyDefinition[] = [
     description: '标准速度与奶怪压迫，原汁原味。',
     speed: 1,
     spacing: 1,
+    rampGain: 0.18,
     monsterPressure: 1,
-    reward: 1.12,
-    startLives: 3,
-    maxLives: 4
+    reward: 1.12
   },
   {
     id: 'hard',
@@ -127,10 +131,9 @@ export const DIFFICULTIES: DifficultyDefinition[] = [
     description: '速度更快、海面更挤，奖励也更丰厚。',
     speed: 1.2,
     spacing: 0.82,
+    rampGain: 0.26,
     monsterPressure: 1.28,
-    reward: 1.28,
-    startLives: 2,
-    maxLives: 3
+    reward: 1.28
   }
 ]
 
@@ -152,6 +155,7 @@ export function createDefaultSave(): SaveData {
     totalRuns: 0,
     totalCaptures: 0,
     tutorialSeen: false,
+    guideVersion: 0,
     settings: { ...DEFAULT_SETTINGS }
   }
 }

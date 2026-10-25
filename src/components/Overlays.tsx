@@ -254,9 +254,9 @@ export function SettingsModal({
 
       <div className="control-guide">
         <strong>操作方式</strong>
-        <p>键盘：方向键/WASD 转向与速度，F 或 Shift 冲刺，空格暂停。</p>
-        <p>触屏：在画面上拖动转向，底部按钮刹车与冲刺。</p>
-        <p>手柄：左摇杆/十字键转向，扳机加减速，A 键冲刺。</p>
+        <p>电脑：A/D 转向，W 加速，S 刹车，F 冲刺，空格暂停，Esc 打开暂停菜单。</p>
+        <p>手机：按住画面左半区向左、右半区向右；底部按住加速、刹车或冲刺。</p>
+        <p>电脑端不使用鼠标轨迹与手柄控制，避免输入冲突。</p>
       </div>
     </Modal>
   )
@@ -273,31 +273,125 @@ export function TutorialModal({
     <Modal onClose={onClose} wide titleId="tutorial-title">
       <div className="tutorial-heading">
         <span className="tiny-label">WELCOME TO THE MILK WAVE</span>
-        <h2 id="tutorial-title">三件冲浪要紧事</h2>
+        <h2 id="tutorial-title">四件冲浪要紧事</h2>
       </div>
       <div className="tutorial-grid">
         <article>
           <span className="tutorial-number pixel-font">01</span>
           <div className="tutorial-icon">↔</div>
-          <h3>先控方向</h3>
-          <p>左右拖拽或按方向键，从障碍物空档穿过去。奶滴会自动吸近。</p>
+          <h3>先控方向与速度</h3>
+          <p>电脑用 A/D 转向、W/S 加减速；手机按住左右半屏转向，底部控制速度。</p>
         </article>
         <article>
           <span className="tutorial-number pixel-font">02</span>
-          <div className="tutorial-icon">ϟ</div>
-          <h3>冲刺拉开距离</h3>
-          <p>F、Shift 或触屏闪电按钮消耗能量，既能逃走，也能冲过危险区。</p>
+          <div className="tutorial-icon">♥</div>
+          <h3>记住五条命</h3>
+          <p>撞障碍扣 1 命；撞到奶怪或被追上扣 2 命。没有接触就不会掉血。</p>
         </article>
         <article>
           <span className="tutorial-number pixel-font">03</span>
-          <div className="tutorial-icon net-icon">╳</div>
+          <div className="tutorial-icon buff-icon">＋</div>
+          <h3>分清道具</h3>
+          <p>黄色“+”是增益，紫色“−”是黏奶泡减速；珊瑚红警戒角标代表障碍。</p>
+        </article>
+        <article>
+          <span className="tutorial-number pixel-font">04</span>
+          <div className="tutorial-icon net-icon">网</div>
           <h3>把奶怪引进网</h3>
-          <p>奶怪靠近时，贴着海面渔网从另一侧掠过，就能永远困住这一只。</p>
+          <p>只有追击中的奶怪能被网住；奶怪距离小于 24m 时贴网掠过即可捕获。</p>
         </article>
       </div>
       <div className="tutorial-actions">
         <button className="primary-button" onClick={onStart}>明白了，开始冲浪</button>
         <button className="text-button muted" onClick={onClose}>先看看岸边</button>
+      </div>
+    </Modal>
+  )
+}
+
+const RULE_OBJECTS = [
+  {
+    icon: 'assets/objects/rock.svg',
+    category: '障碍',
+    name: '礁石 / 浮标 / 对手',
+    detail: '带珊瑚红“!”角标，命中扣 1 命；护盾可抵挡一次。'
+  },
+  {
+    icon: 'assets/objects/coin.svg',
+    category: '中性',
+    name: '奶滴',
+    detail: '收集后计入局内奶滴和对应模式得分。'
+  },
+  {
+    icon: 'assets/objects/heart.svg',
+    category: 'Buff',
+    name: '爱心',
+    detail: '恢复 1 命；已满 5 命时转化为 3 奶币。'
+  },
+  {
+    icon: 'assets/objects/boost.svg',
+    category: 'Buff',
+    name: '闪电',
+    detail: '增加 30 点冲刺能量；按住 F 或触屏闪电键使用。'
+  },
+  {
+    icon: 'assets/objects/shield.svg',
+    category: 'Buff',
+    name: '救生圈',
+    detail: '获得 8 秒护盾，只抵挡一次障碍伤害，不抵挡奶怪。'
+  },
+  {
+    icon: 'assets/objects/slime.svg',
+    category: 'Debuff',
+    name: '黏奶泡',
+    detail: '3 秒内速度 -25%、转向 -20%；重复拾取只刷新时间。'
+  },
+  {
+    icon: 'assets/net.svg',
+    category: '特殊',
+    name: '渔网',
+    detail: '只在追击中出现；奶怪距离小于 24m 且玩家横向距网中心不超过 0.52 时捕获。'
+  }
+]
+
+export function RulesQuickReference({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal onClose={onClose} wide titleId="rules-title">
+      <div className="modal-heading">
+        <div>
+          <span className="tiny-label">WAVE RULES</span>
+          <h2 id="rules-title">规则速查</h2>
+          <p>所有难度固定 5 条命。只有真实碰撞才会扣命。</p>
+        </div>
+      </div>
+      <div className="rule-controls-grid">
+        <article>
+          <strong>电脑</strong>
+          <p><kbd>A</kbd><kbd>D</kbd> 转向　<kbd>W</kbd> 加速　<kbd>S</kbd> 刹车</p>
+          <p><kbd>F</kbd> 冲刺　<kbd>Space</kbd> 暂停　<kbd>Esc</kbd> 暂停菜单</p>
+        </article>
+        <article>
+          <strong>手机</strong>
+          <p>长按左半屏向左、右半屏向右，松手平滑回中。</p>
+          <p>按住底部“加速 / 刹车 / 冲刺”按钮进行操作。</p>
+        </article>
+      </div>
+      <div className="rule-list">
+        {RULE_OBJECTS.map((item) => (
+          <article key={item.name}>
+            <img src={`${import.meta.env.BASE_URL}${item.icon}`} alt="" />
+            <div>
+              <span>{item.category}</span>
+              <strong>{item.name}</strong>
+              <p>{item.detail}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="monster-rule-card">
+        <strong>奶怪判定</strong>
+        <p>奶怪潜伏在浪边。未撞上时，玩家横向距离进入 0.5（约半个冲浪板宽）才会触发追击；直接撞上或追击距离归零会扣 2 命，当前奶怪立即受撞后退并停止追击。</p>
+        <p>渔网只在追击时出现。奶怪距离小于 24m 且玩家横向距网中心不超过 0.52 时捕获；捕获后当前奶怪消失并获得 10 奶币，后续间隔到达时仍会有新奶怪出现。</p>
       </div>
     </Modal>
   )
@@ -413,7 +507,7 @@ export function ResultOverlay({
     result.reason === 'finished'
       ? '你准时抵达了终点。'
       : result.reason === 'caught'
-        ? '奶怪追了上来，但你留下了很漂亮的浪花。'
+        ? '奶怪这一撞太狠，生命耗尽了。'
         : '冲浪板翻了，再试一次会更稳。'
 
   return (
@@ -430,7 +524,7 @@ export function ResultOverlay({
         <div className="result-grid">
           <div><span>奶滴</span><strong>{result.coins}</strong></div>
           <div><span>捕获奶怪</span><strong>{result.captures}</strong></div>
-          <div><span>获得奶币</span><strong>+{result.earnedMilk}</strong></div>
+          <div><span>本局奶币</span><strong>+{result.earnedMilk}</strong></div>
         </div>
         {!result.shouldCountRecord && (
           <p className="result-note">隐藏奶浪已触发，本局不计入最高成绩。</p>
@@ -474,9 +568,34 @@ export function ModeGuide({
           </article>
         ))}
       </div>
+      <div className="rule-controls-grid">
+        <article>
+          <strong>电脑操作</strong>
+          <p><kbd>A</kbd><kbd>D</kbd> 转向　<kbd>W</kbd> 加速　<kbd>S</kbd> 刹车</p>
+          <p><kbd>F</kbd> 冲刺　<kbd>Space</kbd> 暂停　<kbd>Esc</kbd> 暂停菜单</p>
+        </article>
+        <article>
+          <strong>手机操作</strong>
+          <p>长按左半屏或右半屏转向，松手后平滑回中。</p>
+          <p>按住底部加速、刹车或冲刺按钮，避免长按拖动造成跳变。</p>
+        </article>
+      </div>
+      <div className="rule-list">
+        {RULE_OBJECTS.map((item) => (
+          <article key={`guide-${item.name}`}>
+            <img src={`${import.meta.env.BASE_URL}${item.icon}`} alt="" />
+            <div>
+              <span>{item.category}</span>
+              <strong>{item.name}</strong>
+              <p>{item.detail}</p>
+            </div>
+          </article>
+        ))}
+      </div>
       <div className="guide-note">
         <strong>奶怪只出现在无尽浪潮和奶滴收集。</strong>
-        <p>它先在海面一侧潜伏，只有你从旁边经过才会醒来。渔网每隔一段浪程浮出一次，把追击中的奶怪带近并从另一侧擦过，就能捕获当前这一只。</p>
+        <p>它先在海面一侧潜伏。未撞上时，横向距离进入 0.5（约半个冲浪板宽）才会开始追击；撞上或被追上会扣 2 命并让当前奶怪停止。渔网只在追击中出现，奶怪距离小于 24m 且横向距网中心不超过 0.52 时捕获当前这一只，并获得 10 奶币。</p>
+        <p>电脑：A/D 转向、W 加速、S 刹车、F 冲刺。手机：按住左右半屏转向，使用底部加速、刹车与冲刺按钮。</p>
       </div>
     </Modal>
   )

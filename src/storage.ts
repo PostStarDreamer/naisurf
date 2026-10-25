@@ -21,6 +21,7 @@ export function loadSave(): SaveData {
       ...fallback,
       ...parsed,
       version: 1,
+      guideVersion: parsed.guideVersion ?? 0,
       unlocked,
       records: parsed.records ?? {},
       settings: { ...fallback.settings, ...(parsed.settings ?? {}) }
@@ -75,11 +76,17 @@ export function applyRunResult(save: SaveData, result: RunResult): {
   return {
     save: {
       ...save,
-      milkCoins: save.milkCoins + result.earnedMilk,
+      milkCoins:
+        save.milkCoins +
+        Math.max(0, result.earnedMilk - (result.captureMilk ?? 0)),
       totalRuns: save.totalRuns + 1,
       totalCaptures: save.totalCaptures + result.captures,
       records: isBetter ? { ...save.records, [key]: result.recordValue } : save.records
     },
     newRecord: isBetter
   }
+}
+
+export function creditCaptureReward(save: SaveData, amount = 10): SaveData {
+  return { ...save, milkCoins: save.milkCoins + amount }
 }

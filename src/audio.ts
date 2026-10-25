@@ -1,12 +1,28 @@
 import type { GameSettings } from './types'
 
-type SfxName = 'collect' | 'heart' | 'boost' | 'hit' | 'capture' | 'gameover' | 'click'
+type SfxName =
+  | 'collect'
+  | 'heart'
+  | 'boost'
+  | 'hit'
+  | 'capture'
+  | 'gameover'
+  | 'click'
+  | 'monsterWake'
+  | 'monsterHit'
+  | 'monsterStop'
+  | 'netSnap'
+  | 'debuff'
+  | 'accelerate'
+  | 'brake'
 
 export class AudioEngine {
   private context?: AudioContext
   private musicGain?: GainNode
   private sfxGain?: GainNode
   private musicTimer?: number
+  private chaseOscillator?: OscillatorNode
+  private chaseGain?: GainNode
   private step = 0
   private settings: Pick<GameSettings, 'musicVolume' | 'sfxVolume'>
 
@@ -54,6 +70,27 @@ export class AudioEngine {
   stopMusic(): void {
     if (this.musicTimer) window.clearInterval(this.musicTimer)
     this.musicTimer = undefined
+  }
+
+  setChaseAmbience(active: boolean, intensity = 0): void {
+    if (!this.context) return
+    if (active && !this.chaseOscillator) {
+      this.chaseOscillator = this.context.createOscillator()
+      this.chaseGain = this.context.createGain()
+      this.chaseOscillator.type = 'triangle'
+      this.chaseOscillator.frequency.value = 54
+      this.chaseGain.gain.value = 0
+      this.chaseOscillator.connect(this.chaseGain)
+      this.chaseGain.connect(this.sfxGain!)
+      this.chaseOscillator.start()
+    }
+    if (!this.chaseOscillator || !this.chaseGain) return
+    const now = this.context.currentTime
+    const volume = active ? 0.025 + Math.max(0, Math.min(1, intensity)) * 0.055 : 0
+    this.chaseGain.gain.setTargetAtTime(volume, now, active ? 0.12 : 0.25)
+    if (this.chaseOscillator) {
+      this.chaseOscillator.frequency.setTargetAtTime(48 + intensity * 24, now, 0.2)
+    }
   }
 
   private scheduleMusic(): void {
@@ -127,6 +164,34 @@ export class AudioEngine {
         [170, 0.3, 'sawtooth']
       ],
       click: [[620, 0.04, 'square']]
+      ,
+      monsterWake: [
+        [92, 0.16, 'sawtooth'],
+        [68, 0.22, 'triangle'],
+        [116, 0.14, 'square']
+      ],
+      monsterHit: [
+        [82, 0.2, 'sawtooth'],
+        [48, 0.32, 'triangle']
+      ],
+      monsterStop: [
+        [180, 0.12, 'triangle'],
+        [110, 0.24, 'sawtooth']
+      ],
+      netSnap: [
+        [260, 0.08, 'square'],
+        [410, 0.1, 'square'],
+        [680, 0.14, 'triangle']
+      ],
+      debuff: [
+        [220, 0.1, 'triangle'],
+        [140, 0.18, 'sawtooth']
+      ],
+      accelerate: [
+        [220, 0.1, 'triangle'],
+        [330, 0.14, 'triangle']
+      ],
+      brake: [[130, 0.16, 'triangle']]
     }
 
     patterns[name].forEach(([frequency, duration, type], index) => {

@@ -1,10 +1,24 @@
 export type GameMode = 'endless' | 'timeTrial' | 'zigzag' | 'collector'
 export type Difficulty = 'easy' | 'medium' | 'hard'
 export type CharacterId = 'egg' | 'mouse' | 'chicken' | 'dog' | 'frog'
-export type MonsterState = 'lurking' | 'chasing' | 'escaped' | 'captured'
+export type MonsterState = 'lurking' | 'chasing' | 'recoiling' | 'escaped' | 'captured'
 export type NetTrapState = 'idle' | 'armed' | 'snapped' | 'spent'
 export type Screen = 'home' | 'game'
-export type GameEvent = 'collect' | 'heart' | 'boost' | 'hit' | 'capture'
+export type MotionState = 'cruise' | 'accelerating' | 'braking' | 'boosting'
+export type DamageKind = 'obstacle' | 'monster' | null
+export type GameEvent =
+  | 'collect'
+  | 'heart'
+  | 'boost'
+  | 'hit'
+  | 'capture'
+  | 'monsterWake'
+  | 'monsterHit'
+  | 'monsterStop'
+  | 'netSnap'
+  | 'debuff'
+  | 'accelerate'
+  | 'brake'
 
 export interface CharacterDefinition {
   id: CharacterId
@@ -15,6 +29,7 @@ export interface CharacterDefinition {
   price: number
   accent: string
   image: string
+  surfImage: string
 }
 
 export interface ModeDefinition {
@@ -32,10 +47,9 @@ export interface DifficultyDefinition {
   description: string
   speed: number
   spacing: number
+  rampGain: number
   monsterPressure: number
   reward: number
-  startLives: number
-  maxLives: number
 }
 
 export interface GameSettings {
@@ -57,6 +71,7 @@ export interface SaveData {
   totalRuns: number
   totalCaptures: number
   tutorialSeen: boolean
+  guideVersion?: number
   settings: GameSettings
 }
 
@@ -91,12 +106,19 @@ export interface GameSnapshot {
   monsterGap: number
   monsterActive: boolean
   netState: NetTrapState
+  netCaptureReady: boolean
   streak: number
   bestStreak: number
   paused: boolean
   capturedMonsters: number
   invulnerable: boolean
   secretEventActive: boolean
+  debuffRemaining: number
+  paceMultiplier: number
+  speedRatio: number
+  motionState: MotionState
+  monsterAnimationFrame: number
+  lastDamage: DamageKind
 }
 
 export interface RunResult {
@@ -112,6 +134,7 @@ export interface RunResult {
   reason: 'finished' | 'wrecked' | 'caught'
   newRecord: boolean
   earnedMilk: number
+  captureMilk: number
   recordValue: number
   recordLabel: string
   shouldCountRecord: boolean
@@ -127,6 +150,7 @@ export interface WorldObject {
     | 'heart'
     | 'boost'
     | 'shield'
+    | 'slime'
     | 'gate'
   x: number
   z: number
@@ -145,6 +169,7 @@ export interface MonsterEncounter {
   nextSpawnDistance: number
   nextSpawnTime: number
   age: number
+  animationFrame: number
 }
 
 export interface NetTrap {
@@ -171,6 +196,9 @@ export interface GameState {
   invulnerability: number
   boostEnergy: number
   boosting: boolean
+  debuffTimer: number
+  paceMultiplier: number
+  motionState: MotionState
   score: number
   coins: number
   earnedMilk: number
@@ -184,13 +212,15 @@ export interface GameState {
   ended: boolean
   result?: RunResult
   nextEntityId: number
-  spawnAccumulator: number
   nextGateAt: number
-  nextMonsterPeriod: number
   secretEventActive: boolean
   secretEventTimer: number
   secretTriggered: boolean
   events: GameEvent[]
+  lastDamage: DamageKind
+  damageNoticeTimer: number
+  nextHazardRowAt: number
+  safeCenter: number
   shake: number
   flash: number
   rng: () => number
