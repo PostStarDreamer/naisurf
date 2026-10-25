@@ -10,6 +10,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeManifestIcons: false,
       manifest: {
         name: 'naisurf · 奶浪冲浪祭',
         short_name: 'naisurf',
