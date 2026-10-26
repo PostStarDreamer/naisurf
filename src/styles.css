@@ -2984,23 +2984,23 @@ svg {
     animation: mobile-heart-gain 420ms ease-out;
   }
 
-  .hearts.heart-gain .heart.full {
+  .hearts.heart-gain .heart.newly-filled {
     animation: mobile-heart-pop 420ms ease-out both;
   }
 
-  .hearts.heart-gain .heart.full:nth-child(2) {
+  .hearts.heart-gain .heart.newly-filled:nth-child(2) {
     animation-delay: 40ms;
   }
 
-  .hearts.heart-gain .heart.full:nth-child(3) {
+  .hearts.heart-gain .heart.newly-filled:nth-child(3) {
     animation-delay: 80ms;
   }
 
-  .hearts.heart-gain .heart.full:nth-child(4) {
+  .hearts.heart-gain .heart.newly-filled:nth-child(4) {
     animation-delay: 120ms;
   }
 
-  .hearts.heart-gain .heart.full:nth-child(5) {
+  .hearts.heart-gain .heart.newly-filled:nth-child(5) {
     animation-delay: 160ms;
   }
 
@@ -3072,7 +3072,7 @@ svg {
 }
 
 @keyframes mobile-heart-pop {
-  0% { transform: scale(0.55); opacity: 0.35; }
+  0% { transform: scale(0.55); opacity: 1; }
   55% { transform: scale(1.28); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }

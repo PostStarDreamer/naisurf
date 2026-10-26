@@ -27,8 +27,14 @@ export const MIN_HAZARD_REACTION_SECONDS = 1.05
 export const MONSTER_CHASE_START_GAP = 30
 export const MONSTER_ESCAPE_GAP = 72
 export const TOUCH_HAZARD_INTERVAL_MULTIPLIER = 1.12
+export const PACE_TIME_SCALE = 105
+export const PACE_EXPONENT = 0.68
 export const MAX_REVIVES = 3
 export const REVIVE_BASE_COST = 100
+
+export function paceMultiplierAt(rampGain: number, elapsed: number): number {
+  return 1 + rampGain * (Math.max(0, elapsed) / PACE_TIME_SCALE) ** PACE_EXPONENT
+}
 
 export function mulberry32(seed: number): () => number {
   let value = seed >>> 0
@@ -842,8 +848,7 @@ export function updateGame(state: GameState, input: GameInput, dt: number): void
   state.damageNoticeTimer = Math.max(0, state.damageNoticeTimer - dt)
   state.shake = Math.max(0, state.shake - dt * 2.8)
   state.flash = Math.max(0, state.flash - dt * 2.4)
-  state.paceMultiplier =
-    1 + difficulty.rampGain * (state.elapsed / 120) ** 0.75
+  state.paceMultiplier = paceMultiplierAt(difficulty.rampGain, state.elapsed)
 
   if (state.secretEventActive) {
     state.secretEventTimer -= dt

@@ -26,6 +26,7 @@ import {
   MIN_HAZARD_REACTION_SECONDS,
   MONSTER_WAKE_DISTANCE,
   PLAYER_ZONE,
+  paceMultiplierAt,
   REVIVE_BASE_COST,
   SAFE_CORRIDOR_WIDTH,
   TOUCH_HAZARD_INTERVAL_MULTIPLIER,
@@ -259,7 +260,7 @@ describe('naisurf game rules', () => {
       updateGame(game, idleInput, 1 / 60)
       expect(game.paceMultiplier).toBeGreaterThan(atTwoMinutes)
       expect(game.paceMultiplier).toBeCloseTo(
-        1 + gains[difficulty] * (game.elapsed / 120) ** 0.75,
+        paceMultiplierAt(gains[difficulty], game.elapsed),
         4
       )
     }
@@ -270,7 +271,9 @@ describe('naisurf game rules', () => {
     const late = quietRun()
     early.speed = early.baseSpeedForRun
     late.elapsed = 600
-    late.speed = late.baseSpeedForRun * (1 + getDifficulty('medium').rampGain * (600 / 120) ** 0.75)
+    late.speed =
+      late.baseSpeedForRun *
+      paceMultiplierAt(getDifficulty('medium').rampGain, 600)
     const earlyStart = early.distance
     const lateStart = late.distance
     updateGame(early, idleInput, 0.05)
@@ -648,20 +651,30 @@ describe('safe obstacle generation', () => {
 describe('v1.6 difficulty tuning', () => {
   it('increases every difficulty tier while retaining touch spacing', () => {
     expect(DIFFICULTIES.map(({ speed }) => speed)).toEqual([
-      1.08, 1.35, 1.75, 2.39
+      1.16, 1.44, 1.87, 2.56
     ])
     expect(DIFFICULTIES.map(({ rampGain }) => rampGain)).toEqual([
-      0.21, 0.42, 0.62, 0.83
+      0.26, 0.53, 0.78, 1.04
     ])
     expect(DIFFICULTIES.map(({ monsterPressure }) => monsterPressure)).toEqual([
-      1.17, 1.66, 2.29, 3.07
+      1.25, 1.78, 2.45, 3.28
     ])
     expect(DIFFICULTIES.map(({ spacing }) => spacing)).toEqual([
-      0.9, 0.66, 0.46, 0.35
+      0.88, 0.64, 0.44, 0.33
     ])
     expect(DIFFICULTIES.map(({ rowWindow }) => rowWindow)).toEqual([
-      1.36, 1.2, 1.06, 1.05
+      1.32, 1.16, 1.05, 1.05
     ])
+  })
+
+  it('raises the normalized speed curve in the early and middle game', () => {
+    const oldCurve = (elapsed: number) =>
+      1 + 0.26 * (elapsed / 120) ** 0.75
+    expect(paceMultiplierAt(0.26, 30)).toBeGreaterThan(oldCurve(30))
+    expect(paceMultiplierAt(0.26, 120)).toBeGreaterThan(oldCurve(120))
+    expect(paceMultiplierAt(0.26, 600)).toBeGreaterThan(
+      paceMultiplierAt(0.26, 120)
+    )
   })
 })
 

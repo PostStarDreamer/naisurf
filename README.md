@@ -39,14 +39,6 @@ npm run preview
 - 奶鲨在潜伏、追赶、捕获和主界面分别使用附件中的 front 3/4、front、back 3/4 和 side view。
 - 奶鲨追击从 30 米开始，拉开到 72 米可脱离；速度增长和黏奶泡会让追击压力继续上升。
 - 黄色“+”光环是增益，紫色“−”菱形是黏奶泡减速，珊瑚红“!”角标代表障碍。
-- 主页自动尝试循环《L'océan — Richard Clayderman》（用户提供并授权）；被浏览器拦截时可点顶部“开启音乐”。进入游戏后淡出到原创分层配乐，全部音频支持 PWA 离线缓存。
 - 主页面顶部提供自愿打赏入口，完整展示用户提供的赞赏码，不接入支付 SDK。
 
 游戏成绩、奶币、角色解锁、规则阅读状态和设置保存在浏览器本地，不会上传服务器。
-
-## 公开反馈信箱
-
-- 主页反馈入口会生成带 `feedback` 标签的公开 GitHub Issue；玩家需要登录 GitHub，请不要填写敏感信息。
-- `npm run feedback:install` 安装每天 `00:05` 的本地导出任务，自动读取仓库中尚未导出的 `feedback` Issue。
-- 每日随机选择最多 5 条，按日期追加到 `D:\FILES\AI generated\奶浪冲浪祭反馈信箱.txt`，并保留最近 30 个日期区块。没有未导出反馈时不改动文件。
-- 可用 `npm run feedback:export` 手动导出，或运行 `tools/install-feedback-tasks.ps1 -Uninstall` 移除导出任务。
