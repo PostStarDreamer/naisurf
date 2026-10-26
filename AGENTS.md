@@ -181,9 +181,9 @@
 
 ## 待完成
 
-- [ ] GitHub `main` 提交、推送和 Pages 部署。
-- [ ] 公开网址 v1.6 同版本补丁、音频、反馈和 PWA 验证。
-- [ ] 部署后补写最终提交、Actions run 和线上验收记录。
+- [x] GitHub `main` 提交、推送和 Pages 部署。
+- [x] 公开网址 v1.6 同版本补丁、音频、反馈和 PWA 验证。
+- [x] 部署后补写最终提交、Actions run 和线上验收记录。
 
 ## v1.3 公开部署记录
 
@@ -229,6 +229,9 @@
 - `feedback` 标签、Issue 模板和每日 GitHub Issue 导出器已启用；旧 `127.0.0.1:4317` 桥接任务与进程已移除。
 - 当前没有带 `feedback` 标签的 Issue，实际导出确认目标 TXT 与导出状态均未改变。
 - 公开验收无控制台错误或失败请求。
+- 同版本补丁本地提交：`e4755ec7a03bee500ecbd872de398cf1eb2303c0`；GitHub API 等价 `main` 提交：`ad9a25c116321ea1055e3ca3f43217a59314044f`。
+- 同版本补丁 Actions run：https://github.com/PostStarDreamer/naisurf/actions/runs/40351409149，build 与 deploy 均成功。
+- 补丁公开验收确认音乐持续播放、反馈链接、断网 PWA 和 `1.6.0` 版本号正常；GitHub README 已不含指定音乐归属句与公开反馈章节。
 
 ## 安全与改动边界
 
