@@ -187,7 +187,7 @@ function drawBackground(
   ctx.fillStyle = sea
   ctx.fillRect(0, HORIZON, WIDTH, HEIGHT - HORIZON)
 
-  drawWaveBands(ctx, motionDistance)
+  drawWaveBands(ctx, motionDistance, motionElapsed, state.speed)
 
   const reflection = ctx.createLinearGradient(sunX, HORIZON, sunX, HEIGHT)
   reflection.addColorStop(0, 'rgba(255, 214, 154, .48)')
@@ -385,13 +385,15 @@ function drawFestivalFlags(
 
 function drawWaveBands(
   ctx: CanvasRenderingContext2D,
-  distance: number
+  distance: number,
+  elapsed: number,
+  speed: number
 ): void {
   const seaHeight = HEIGHT - HORIZON
   const layers = [
-    { alpha: 0.17, speed: 8, color: '#b3c4b8', width: 0.7 },
-    { alpha: 0.2, speed: 16, color: '#8fb0ae', width: 0.95 },
-    { alpha: 0.25, speed: 25, color: '#d3ded0', width: 1.3 }
+    { alpha: 0.15, flow: 0.006, color: '#b3c4b8', width: 0.75 },
+    { alpha: 0.2, flow: 0.009, color: '#8fb0ae', width: 1.05 },
+    { alpha: 0.27, flow: 0.013, color: '#d3ded0', width: 1.4 }
   ]
   ctx.save()
   for (let layer = 0; layer < layers.length; layer += 1) {
@@ -399,30 +401,48 @@ function drawWaveBands(
     ctx.strokeStyle = spec.color
     ctx.globalAlpha = spec.alpha
     ctx.lineWidth = spec.width
-    const lineCount = WIDTH < 520 ? 22 : 30
+    const lineCount = WIDTH < 520 ? 24 : 38
     for (let index = 0; index < lineCount; index += 1) {
-      const t = (index + layer * 0.35) / lineCount
-      const y =
-        HORIZON +
-        14 +
-        seaHeight * t ** 1.35 +
-        Math.sin(index * 2.1 + layer) * (1 + t * 7)
-      const offset =
-        ((distance * spec.speed + index * 83 + layer * 49) %
-          (WIDTH + 180)) -
-        90
-      const length = 18 + t * (55 + layer * 20)
+      const progress =
+        (index / lineCount +
+          distance * spec.flow +
+          layer * 0.13 +
+          elapsed * 0.018 * (spec.flow / 0.009)) %
+        1
+      const t = progress ** 1.12
+      const y = HORIZON + 7 + seaHeight * t
+      const lane = (((index * 0.618 + layer * 0.217) % 1) * 2 - 1)
+      const spread = WIDTH * (0.055 + t * 0.49)
+      const sway =
+        Math.sin(elapsed * (1.1 + t) + index * 1.37 + layer) * (1 + t * 7)
+      const x = WIDTH / 2 + lane * spread + sway
+      const length = 4 + t * (28 + layer * 8)
+      const curve = Math.sin(index * 1.9 + elapsed * 1.4 + layer) * (1 + t * 5)
       ctx.beginPath()
-      ctx.moveTo(offset, y)
+      ctx.moveTo(x, y)
       ctx.bezierCurveTo(
-        offset + length * 0.3,
-        y - 2 - layer,
-        offset + length * 0.7,
-        y + 2 + layer,
-        offset + length,
-        y
+        x + curve * 0.25,
+        y + length * 0.28,
+        x - curve * 0.2,
+        y + length * 0.72,
+        x + curve,
+        y + length
       )
       ctx.stroke()
+
+      if (t > 0.2) {
+        ctx.globalAlpha = spec.alpha * (0.3 + t * 0.45)
+        ctx.beginPath()
+        ctx.moveTo(x - 4 - t * 10, y + length * 0.34)
+        ctx.quadraticCurveTo(
+          x - 8 - t * 16,
+          y + length * 0.42,
+          x - 5 - t * 8,
+          y + length * 0.5
+        )
+        ctx.stroke()
+        ctx.globalAlpha = spec.alpha
+      }
     }
   }
   ctx.globalAlpha = 1
@@ -430,7 +450,8 @@ function drawWaveBands(
   const grainStep = WIDTH < 520 ? 23 : 31
   for (let y = HORIZON + 18; y < HEIGHT; y += grainStep) {
     for (let x = (y * 7) % 29; x < WIDTH; x += grainStep * 2) {
-      const drift = (distance * 2 + x + y) % grainStep
+      const drift =
+        (distance * 2.8 + speed * elapsed * 0.35 + x + y) % grainStep
       ctx.fillRect(x + drift * 0.3, y, 2, 1)
     }
   }

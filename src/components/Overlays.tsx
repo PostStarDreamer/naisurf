@@ -275,7 +275,7 @@ export function SettingsModal({
 
       <div className="control-guide">
         <strong>操作方式</strong>
-        <p>电脑：A/D 转向，W 加速，S 刹车，F 冲刺，空格暂停，Esc 打开暂停菜单。</p>
+        <p>电脑：A/D 转向，W 加速，S 刹车，Shift 冲刺，空格暂停，Esc 打开暂停菜单。</p>
         <p>手机：按住左半屏或右半屏转向，底部按钮控制加速、刹车和冲刺。</p>
         <p>电脑端只认键盘，鼠标移动不会让浪板乱跑。</p>
       </div>
@@ -353,7 +353,7 @@ const RULE_OBJECTS = [
     icon: 'assets/objects/boost.svg',
     category: 'Buff',
     name: '闪电',
-    detail: '补 30 点冲刺能量。电脑按住 F，手机按住底部闪电。'
+    detail: '补 30 点冲刺能量。电脑按住 Shift，手机按住底部闪电。'
   },
   {
     icon: 'assets/objects/shield.svg',
@@ -389,7 +389,7 @@ export function RulesQuickReference({ onClose }: { onClose: () => void }) {
         <article>
           <strong>电脑</strong>
           <p><kbd>A</kbd><kbd>D</kbd> 转向　<kbd>W</kbd> 加速　<kbd>S</kbd> 刹车</p>
-          <p><kbd>F</kbd> 冲刺　<kbd>Space</kbd> 暂停　<kbd>Esc</kbd> 暂停菜单</p>
+          <p><kbd>Shift</kbd> 冲刺　<kbd>Space</kbd> 暂停　<kbd>Esc</kbd> 暂停菜单</p>
         </article>
         <article>
           <strong>手机</strong>
@@ -597,7 +597,7 @@ export function ModeGuide({
         <article>
           <strong>电脑操作</strong>
           <p><kbd>A</kbd><kbd>D</kbd> 转向　<kbd>W</kbd> 加速　<kbd>S</kbd> 刹车</p>
-          <p><kbd>F</kbd> 冲刺　<kbd>Space</kbd> 暂停　<kbd>Esc</kbd> 暂停菜单</p>
+          <p><kbd>Shift</kbd> 冲刺　<kbd>Space</kbd> 暂停　<kbd>Esc</kbd> 暂停菜单</p>
         </article>
         <article>
           <strong>手机操作</strong>
@@ -622,7 +622,7 @@ export function ModeGuide({
         <p>它先在浪边潜伏。没撞上时，横向距离进入约 0.62 才会追；撞上或被追到零距离会扣 2 命，并让它停下。渔网只在追击时出现，抓住当前奶鲨能拿到 10 枚奶币。</p>
         <p>奶滴、满血爱心和捕获奖励会立即进入永久奶币余额。普通模式每局最多复活 3 次，费用依次是 100、200、300 枚奶币；极限模式不能复活。</p>
         <p>后续浪友需要同时满足奶币和累计任务。已解锁的角色不会因为任务调整重新上锁。</p>
-        <p>电脑：A/D 转向、W 加速、S 刹车、F 冲刺。手机：按住左右半屏转向，底部按钮控制加速、刹车和冲刺。</p>
+        <p>电脑：A/D 转向、W 加速、S 刹车、Shift 冲刺。手机：按住左右半屏转向，底部按钮控制加速、刹车和冲刺。</p>
       </div>
     </Modal>
   )

@@ -64,6 +64,16 @@ img {
   image-rendering: pixelated;
 }
 
+.hero-monster,
+.hero-character,
+.character-image-wrap img,
+.launch-runner img,
+.monster-art img,
+.shop-item img,
+.rule-list img {
+  image-rendering: auto;
+}
+
 svg {
   display: block;
 }

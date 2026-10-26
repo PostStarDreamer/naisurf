@@ -1,0 +1,229 @@
+{
+  "maskSize": 64,
+  "assets": [
+    {
+      "path": "public/assets/showcase/egg.png",
+      "original": {
+        "width": 234,
+        "height": 298,
+        "coverage": 0.7647851775368554,
+        "mask": "0000003ff8000000000001ffff800000000007fffff0000000003ffffff8000000007ffffffe00000000ffffffff00000001ffffffff80000003ffffffffe000000ffffffffff000001ffffffffff800001ffffffffff800003ffffffffffc00007ffffffffffe0000fffffffffffe0000ffffffffffff0001ffffffffffff8001ffffffffffff8003ffffffffffffc003ffffffffffffc007ffffffffffffe007ffffffffffffe00ffffffffffffff00ffffffffffffff01ffffffffffffff81ffffffffffffff81ffffffffffffff83ffffffffffffffc3ffffffffffffffc3ffffffffffffffc7ffffffffffffffe7ffffffffffffffe7ffffffffffffffe7ffffffffffffffe7ffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffe7ffffffffffffffe7ffffffffffffffe3ffffffffffffffc3ffffffffffffffc3ffffffffffffff81ffffffffffffff81ffffffffffffff00ffffffffffffff007ffffffffffffe007ffffffffffffc003ffffffffffff8000ffffffffffff00007ffffffffffe00003ffffffffff800000ffffffffff0000003ffffffffe0000000ffffffff000000000ffffff00000000001ffff800000"
+      },
+      "output": {
+        "width": 587,
+        "height": 742,
+        "coverage": 0.7142926020654156
+      }
+    },
+    {
+      "path": "public/assets/showcase/mouse.png",
+      "original": {
+        "width": 276,
+        "height": 352,
+        "coverage": 0.6635890151515151,
+        "mask": "00ff80000001ff0003fff000000fffe00ffffc00003ffff01fffff00007ffff83fffff0000fffffe7fffff0001fffffeffffff8001ffffffffffffc001ffffffffffffc001ffffffffffffc003ffffffffffffcff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffe3ffffffffffffffc3ffffffffffffffc1ffffffffffffff807ffffffffffffe001ffffffffffff80007ffffffffffe000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000001ffffffff80000001ffffffff80000003ffffffff80000003ffffffffc0000003ffffffffc0000007ffffffffe000000ffffffffff000001ffffffffff000001ffffffffffc00003ffffffffffc00007ffffffffffe0000ffffffffffff0000ffffffffffff0001ffffffffffff8003ffffffffffff8003ffffffffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc001ffffffffffff80001ffffffffff800001ffffffffff800001ffffffffff800001ffffffffff800000ffffffffff0000f8ffffffffff0003ff7ffffffffe0007ff7ffffffffc00001ffffffffff8000007fffffffff0000003ffffffffe0000000ffffffffe000000007ff81ffc000000003ff01ffc000000007ff81ffe000000007ff01ffe000000003fe007fc0000"
+      },
+      "output": {
+        "width": 587,
+        "height": 742,
+        "coverage": 0.6201045105773337
+      }
+    },
+    {
+      "path": "public/assets/showcase/chicken.png",
+      "original": {
+        "width": 269,
+        "height": 379,
+        "coverage": 0.5690674932075213,
+        "mask": "00000003e00000000000000ff00000000000000ff00000000000003ffe0000000000007ffe000000000000ffff000000000000ffff000000000000ffff000000000000ffff0000000000007fff000000000000ffff000000000003ffffe0000000000ffffff8000000003ffffff8000000003ffffffe000000007ffffffe00000000ffffffff00000000ffffffff80000001ffffffff80000001ffffffff80000003ffffffffc0000003ffffffffc0000003ffffffffc0000003ffffffffc0000007ffffffffe0000007ffffffffe0000007ffffffffe0000007fffffffff000000ffffffffff000000ffffffffff800001ffffffffff800003ffffffffffc00007ffffffffffe0001ffffffffffff8003ffffffffffffc007ffffffffffffe007fffffffffffff81ffffffffffffff81ffffffffffffff83ffffffffffffffc3ffffffffffffffc7ffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffff3cffffffffffff3e007ffffffffffe00007ffffffffffe00003ffffffffffe00003ffffffffffc00001ffffffffff800000ffffffffff0000003ffffffffe0000003ffffffffc0000001ffffffff80000001ffffffff80000000fff80fff80000001fff00fff80000001fff00fffc0000003fff00fffc0000001ffe007ff8000"
+      },
+      "output": {
+        "width": 533,
+        "height": 742,
+        "coverage": 0.5290503330079952
+      }
+    },
+    {
+      "path": "public/assets/showcase/dog.png",
+      "original": {
+        "width": 265,
+        "height": 432,
+        "coverage": 0.7069182389937106,
+        "mask": "0007c0000007e000003ff000000ff80000ffffffffdffe0003ffffffffffff8007ffffffffffffe01ffffffffffffff87ffffffffffffffefffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffe7ffffffffffffffe3ffffffffffffffc3ffffffffffffff81ffffffffffffff80fffffffffffffe002ffffffffffffc0007ffffffffffe00007ffffffffffe00007ffffffffffe00007ffffffffffc00007ffffffffffc00003ffffffffffc00003ffffffffffc00001ffffffffff800001ffffffffff800003ffffffffff800003ffffffffffc00007ffffffffffc00007ffffffffffe0000ffffffffffff0000ffffffffffff0001ffffffffffff8001ffffffffffff8003ffffffffffff8003ffffffffffff8003ffffffffffffc007ffffffffffffc007ffffffffffffc007ffffffffffffc007ffffffffffffc007ffffffffffffc007ffffffffffffc007ffffffffffffc003ffffffffffffc003ffffffffffff8003ffffffffffff8001ffffffffffff8001ffffffffffff0000ffffffffffff0000fffffffffffe00007fffc003fffe00007fff8003fffc00003fff8001fffc00003fff0001fff800003fff8001fff800003fff8001fff800003fff8001fffc00007fff8001fffe00007fff0001fffe00007fff8001fffe00007fff0001fffe00007ffc00007ffc00"
+      },
+      "output": {
+        "width": 464,
+        "height": 742,
+        "coverage": 0.6532873640672925
+      }
+    },
+    {
+      "path": "public/assets/showcase/frog.png",
+      "original": {
+        "width": 251,
+        "height": 371,
+        "coverage": 0.6154680469496676,
+        "mask": "0000003ffc000000000000ffff000000000003ffffc00000000007ffffe0000000000ffffff0000000001ffffff0000000001ffffff8000000001ffffff8000000001ffffff8000000003ffffffc000000003ffffffc000000007ffffffe000000007fffffff000000007ffffffe00000000ffffffff00000001ffffffff80000007ffffffffc000000fffffffffe000001ffffffffff000007ffffffffffc0000fffffffffffe0001ffffffffffff8007ffffffffffffc007ffffffffffffe00ffffffffffffff01ffffffffffffff01ffffffffffffff83ffffffffffffffc7ffffffffffffffc7ffffffffffffffe7ffffffffffffffefffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffe7ffffffffffffffe3ffffffffffffffc3ffffffffffffffc3ffffffffffffffc3ffffffffffffffc1ffffffffffff3f80fc7ffffffffc3f00387ffffffffc0c00007ffffffffc0000007ffffffffc0000007fff80fffc0000007ffe007ffc0000003ffe003ffc0000003ffc003ff80000001ffc003ff80000001ff8001ff80000001ff0001ff80000000ff0000ff00000001fe00007f00000001fe00007f80000007fe00007fe000003ffe00007ffc00007ffc00007ffc00007ff000000ffe00"
+      },
+      "output": {
+        "width": 509,
+        "height": 742,
+        "coverage": 0.571423275912285
+      }
+    },
+    {
+      "path": "public/assets/characters/egg-surf.png",
+      "original": {
+        "width": 232,
+        "height": 298,
+        "coverage": 0.7672703077991205,
+        "mask": "0000001ffc000000000001ffff80000000000ffffff0000000003ffffffc000000007ffffffe00000000ffffffff00000003ffffffffc0000007ffffffffe000000ffffffffff000001ffffffffff800003ffffffffffc00003ffffffffffc00007ffffffffffe0000ffffffffffff0000ffffffffffff8001ffffffffffff8001ffffffffffff8003ffffffffffffc003ffffffffffffc007ffffffffffffe007ffffffffffffe00ffffffffffffff00ffffffffffffff01ffffffffffffff81ffffffffffffff81ffffffffffffffc3ffffffffffffffc3ffffffffffffffc3ffffffffffffffc7ffffffffffffffe7ffffffffffffffe7ffffffffffffffe7ffffffffffffffe7ffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffe7ffffffffffffffe7ffffffffffffffe7ffffffffffffffc3ffffffffffffffc3ffffffffffffff81ffffffffffffff81ffffffffffffff00ffffffffffffff007ffffffffffffe003ffffffffffffe001ffffffffffff8000ffffffffffff00007ffffffffffe00003ffffffffffc00000ffffffffff0000007ffffffffc0000000ffffffff000000000ffffff00000000001ffff800000"
+      },
+      "output": {
+        "width": 583,
+        "height": 742,
+        "coverage": 0.7163870305557739
+      }
+    },
+    {
+      "path": "public/assets/characters/mouse-surf.png",
+      "original": {
+        "width": 270,
+        "height": 349,
+        "coverage": 0.6664756446991404,
+        "mask": "00ff80000003ff0003fff000000fffc00ffff800001ffff01ffffc00007ffff83fffff0000fffffc7fffff0000fffffe7fffff8001fffffeffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc7e3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffe7ffffffffffffffc1ffffffffffffff81ffffffffffffff80fffffffffffffe001ffffffffffffc0007ffffffffffe000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000001ffffffff80000001ffffffff80000003ffffffff80000003ffffffffc0000007ffffffffc0000007ffffffffe0000007fffffffff000000ffffffffff800001ffffffffff800003ffffffffffc00007ffffffffffe0000ffffffffffff0000ffffffffffff8001ffffffffffff8003ffffffffffff8003ffffffffffffc007ffffffffffffe007ffffffffffffe007ffffffffffffe007ffffffffffffe003ffffffffffffe0003ffffffffffe00001ffffffffff800001ffffffffff800001ffffffffff800001ffffffffff800000ffffffffff000000ffffffffff0000007ffffffffe0000003ffffffffc0000001ffffffff80000000ffffffff00000000ffffffff000000007ffffffe000000007ff07ffe000000007ff03fffffe000007ff01fffffe000003ff003ffffe0"
+      },
+      "output": {
+        "width": 579,
+        "height": 742,
+        "coverage": 0.6222807238057996
+      }
+    },
+    {
+      "path": "public/assets/characters/chicken-surf.png",
+      "original": {
+        "width": 267,
+        "height": 379,
+        "coverage": 0.5747828407103258,
+        "mask": "00000007e000000000000007f00000000000000ff00000000000007ffe000000000000ffff000000000000ffff000000000000ffff000000000000ffff000000000000ffff0000000000007fff000000000000ffff800000000003ffffe0000000001ffffff8000000003ffffffc000000003ffffffe000000007ffffffe00000000ffffffff00000000ffffffff00000001ffffffff80000001ffffffffc0000003ffffffffc0000003ffffffffc0000003ffffffffc0000003ffffffffe0000007ffffffffe0000007ffffffffe0000007ffffffffe000000ffffffffff000000ffffffffff000001ffffffffff800003ffffffffffc00003ffffffffffc0000ffffffffffff0001ffffffffffffc003ffffffffffffc007ffffffffffffe00ffffffffffffff00ffffffffffffff81ffffffffffffffc3ffffffffffffffc7ffffffffffffffe7ffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffff38ffffffffffff9f007fffffffffff00007ffffffffffe00003ffffffffffe00003ffffffffffc00001ffffffffff800000ffffffffff0000007fffffffff0000003ffffffffc0000001ffffffffc0000001ffffffff80000001fff00fff80000001fff00fff80000003fff00fffc0000003fff00fffc0000003ffe00fff8000"
+      },
+      "output": {
+        "width": 529,
+        "height": 742,
+        "coverage": 0.5341258235291121
+      }
+    },
+    {
+      "path": "public/assets/characters/dog-surf.png",
+      "original": {
+        "width": 252,
+        "height": 419,
+        "coverage": 0.7044361101640338,
+        "mask": "0000000000000000001fc03ffc07f800007ffffffffffe0000ffffffffffff8003ffffffffffffc00ffffffffffffff07ffffffffffffff87ffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffe7ffffffffffffffc3ffffffffffffffc3ffffffffffffff81ffffffffffffff007ffffffffffffe000fffffffffffe0000fffffffffffe00007ffffffffffe00007ffffffffffc00003ffffffffffc00003ffffffffffc00003ffffffffff800001ffffffffff800000ffffffffff000001ffffffffff800003ffffffffffc00003ffffffffffe00007ffffffffffe0000ffffffffffff0000ffffffffffff0001ffffffffffff8001ffffffffffff8003ffffffffffff8003ffffffffffff8003ffffffffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc003ffffffffffffc001ffffffffffffc001ffffffffffff8001ffffffffffff8001ffffffffffff8000ffffffffffff0000ffffffffffff00007fffe3c7fffe00007fffe007fffc00003fffc003fffc00003fffc003fffc00001fff8001fff800001fff8001fff800001fff8001fff800003fff8001fffc00007fff8001fffe0000ffff8001ffff0000ffff8001ffff00007fff8001fffe00003ffe00007ffc00"
+      },
+      "output": {
+        "width": 455,
+        "height": 742,
+        "coverage": 0.6510678001244039
+      }
+    },
+    {
+      "path": "public/assets/characters/frog-surf.png",
+      "original": {
+        "width": 251,
+        "height": 372,
+        "coverage": 0.6142847962986763,
+        "mask": "0000003ffc000000000000ffff000000000001ffffc00000000007ffffe0000000000ffffff0000000000ffffff0000000001ffffff8000000001ffffff8000000001ffffff8000000003ffffffc000000003ffffffc000000007ffffffc000000007ffffffe00000000fffffffe00000000ffffffff00000001ffffffff80000003ffffffffc0000007ffffffffe000001ffffffffff800003ffffffffffc00007fffffffffff0003ffffffffffff8003ffffffffffffc007ffffffffffffe00ffffffffffffff00ffffffffffffff81ffffffffffffff83ffffffffffffffc3ffffffffffffffe7ffffffffffffffe7ffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffe7ffffffffffffffe3ffffffffffffffe3ffffffffffffffc3ffffffffffffffc1ffffffffffffffc1fc7fffffffffff80fc3ffffffffe3f00383ffffffffe1c00003ffffffffe0000003ffffffffe0000003fff00fffe0000003fff007ffe0000003ffe007ffc0000001ffc003ff80000001ffc001ff80000001ff8001ff80000001ff0000ff80000000ff0000ff00000000ff00007f00000000fe00007f8000000ffe00007ff000003ffe00007ffc00003ffe00007ffc00000ffc00003ff800"
+      },
+      "output": {
+        "width": 508,
+        "height": 742,
+        "coverage": 0.5700782095634273
+      }
+    },
+    {
+      "path": "public/assets/monster-lure-three-quarter.png",
+      "original": {
+        "width": 206,
+        "height": 258,
+        "coverage": 0.4665838789794536,
+        "mask": "00000000000f80000000000000ff80000000000007ff8000000000001fff8000000000007fff000000000000ffff000000007ff9fffe00000007fffffffe0000003ffffffffe0000007ffffffffc000001fffffffffc000003fffffffffc00000ffffffffffc00001ffffffffffc00003ffffffffffc00007ffffffffffe0000ffffffffffff0000ffffffffffff8000ffffffffffffc000ffffffffffffe000ffffffffffffe0007ffffffffffff0003ffffffffffff0003ffffffffffff8001ffffffffffff8000ffffffffffffc0007fffffffffffc0003fffffffffffc0001fffffffffffe0000fffffffffffc00007ffffffffffe0000ffffffffffff0001ffffffffffff0003ffffffffffffc003ffffffffffffe007fffffffffffff007fffffffffffffc0ffffffffffffffe1ffc0fffffffffff1ff003ffffffffff1f8000fffffffffe0000000fffffffe000000001ffffff80000000000fffff000000000003fffe000000000000fffc0000000000007ffc0000000000003ff80000000000007ff00000000000003ff00000000000003ff00000000000003ff00000000000003ff00000000000001ff00000000000001ff00000000000000ff00000000000000ff000000000000007f000000000000007f000000000000003f000000000000003f000000000000001f80000000000000078000000000000003800"
+      },
+      "output": {
+        "width": 597,
+        "height": 742,
+        "coverage": 0.4358404782221981
+      }
+    },
+    {
+      "path": "public/assets/monster-chase-closed-front.png",
+      "original": {
+        "width": 261,
+        "height": 185,
+        "coverage": 0.4178937558247903,
+        "mask": "0000000180000000000000038000000000000003c000000000000003e000000000000007e000000000000007e000000000000007e000000000000007e00000000000000ff00000000000000ff00000000000000ff00000000000000ff00000000000000ff00000000000001ff00000000000001ff80000000000007ffc000000000000ffff000000000001ffffc00000000003ffffe00000000007ffffe0000000000ffffff0000000001ffffff8000000001ffffff8000000003ffffff8000000003ffffffc000000003ffffffe000000007ffffffe00000000fffffffe00000000ffffffff00000000ffffffff00000000ffffffff00000001ffffffff00000001ffffffff80000001ffffffff80000001ffffffff80000003ffffffff80000003ffffffffc0000003ffffffffc0000003ffffffffc0000003ffffffffc0000003ffffffffc0000007ffffffffc0000007ffffffffe000000fffffffffe000001ffffffffff800003ffffffffffc00007ffffffffffe0001ffffffffffff0003ffffffffffffc007ffffffffffffe00ffffffffffffff01ffffffffffffff83ffffffffffffffc7ffffffffffffffeffff3ffffffc7ffffffe1ffffff83fffffe01ffffff00fff7f800fffffe001fc000007ffffe00000000003ffffc00000000001ffff800000000000ffff0000000000003ffc0000000000001ff8000000"
+      },
+      "output": {
+        "width": 742,
+        "height": 532,
+        "coverage": 0.38881908274729954
+      }
+    },
+    {
+      "path": "public/assets/monster-chase-open-front.png",
+      "original": {
+        "width": 260,
+        "height": 227,
+        "coverage": 0.45914944086750253,
+        "mask": "000000018000000000000001c000000000000003c000000000000007c00000000000000fe00000000000001ff00000000000007ffc000000000000fffe000000000001ffff000000000003ffff000000000003ffff800000000007ffffc0000000000fffffe0000000000ffffff0000000003ffffff8000000007ffffffc00000000fffffffe00000000fffffffe00000001ffffffff00000001ffffffff00000001ffffffff00000001ffffffff00000001ffffffff00000001ffffffff00000003ffffffff80000003ffffffff80000003ffffffff80000003ffffffff80000003ffffffff80000007ffffffffc0000007ffffffffc0000007ffffffffc0000007ffffffffc0000007ffffffffe000000fffffffffe000000ffffffffff000001ffffffffff800007ffffffffffc0001ffffffffffff0003ffffffffffffc00fffffffffffffe01ffffffffffffff83ffffffffffffffc7ffffffffffffffefffffffffffffffffff1ffffffff0fff7f81ffffffff01fe0001ffffffff00000001ffffffff00000000fffffffe00000000fffffffe00000000fffffffe000000007ffffffc000000007ffffffc000000003ffffff8000000003ffffff8000000001ffffff0000000001fffffe0000000000fffffe00000000007ffffc00000000003ffff800000000001ffff000000000000fffe0000000000001ff8000000"
+      },
+      "output": {
+        "width": 742,
+        "height": 651,
+        "coverage": 0.43030005672384597
+      }
+    },
+    {
+      "path": "public/assets/monster-capture-back-three-quarter.png",
+      "original": {
+        "width": 241,
+        "height": 265,
+        "coverage": 0.41213497220699913,
+        "mask": "00000000000007f8000000000001fffe00000000000ffffe00000000003ffffe0000000000ffffff0000000003ffffff0000000007ffffff000000000fffffff000000001fffffff000000003fffffff00000000ffffffff00000003ffffffff0000000ffffffffe0000003fffffffff000000fffffffffe000000fffffffffe000001fffffffffc000001fffffffffc000000fffffffffc0000003ffffffff80000003ffffffff80000003ffffffff00000007ffffffff0000001fffffffff0000003ffffffffe0000007ffffffffe000000fffffffffe000000ffffffffff000001ffffffffff0000009fffffffff0000000fffffffff8000001fffffffff8000000fffffffff8000001fffffffffc000001fffffffffc000001fffffffffc000003ffffffcffc000003ffffff07fc000003fffffe03fc000003fffffc01fc000007fffff000f8000007ffffe0007800ffcfffff80003807ffffffff0000003ffffffff80000007ffffffff0000000ffffffff00000000fffffffc00000000fffffff00000000003ffffe000000000000fffc0000000000001ffc0000000000000ffc0000000000000ffc00000000000007fc00000000000003fc00000000000003fc00000000000003f800000000000003f800000000000001f000000000000001f000000000000001f000000000000001e000000000000000c0000000000"
+      },
+      "output": {
+        "width": 677,
+        "height": 742,
+        "coverage": 0.38699152356798466
+      }
+    },
+    {
+      "path": "public/assets/monster-hero-side.png",
+      "original": {
+        "width": 337,
+        "height": 177,
+        "coverage": 0.5137554694965548,
+        "mask": "000000007800000000000000f800000000000003f800000000000007f800000000000007f80000000000000ff80000000000000ff00000000000001ff00000000000001ff00000070000003ff000000f0000007fe000001f0000007fe000003f000000ffe000007f000000ffe000007f00003fffe00000ff00007fffe00000fe0001fffff00001fc0007fffff00001fc001ffffff80003fc003ffffffc0003fc007fffffff0003f801ffffffff8007f803ffffffffc007f803fffffffff007f80ffffffffff80ff80ffffffffffe0ff01fffffffffff9ff03ffffffffffffff07ffffffffffffff07fffffffffffffe0ffffffffffffffe0ffffffffffffffe0ffffffffffffffe0ffffffffffffffe0ffffffffffffffe0ffffffffffffffe0ffffffffffffffe07ffffffffffffff07ffffffffffffff03ffffffffffffff03ffffffffffffff01ffffffffffffff01ffffffffffffff80fffffffffffc7f80fffffffffff83f807ffffffffff03fc03fffffffffe01fc01fffffffffc00fc01fffffffff8007c007ffffffff8007c003fffffffe0001c001fffffffc00000000fffffff8000000007fffffe0000000003fffffc00000000007ffffc00000000003ffffc0000000000081ffc0000000000000ffe00000000000007fe00000000000003fe00000000000001fe000000000000007e000000000000003e000000"
+      },
+      "output": {
+        "width": 742,
+        "height": 400,
+        "coverage": 0.4708490566037736
+      }
+    },
+    {
+      "path": "public/assets/monster-recoil-three-quarter.png",
+      "original": {
+        "width": 206,
+        "height": 258,
+        "coverage": 0.4665838789794536,
+        "mask": "00000000000f80000000000000ff80000000000007ff8000000000001fff8000000000007fff000000000000ffff000000007ff9fffe00000007fffffffe0000003ffffffffe0000007ffffffffc000001fffffffffc000003fffffffffc00000ffffffffffc00001ffffffffffc00003ffffffffffc00007ffffffffffe0000ffffffffffff0000ffffffffffff8000ffffffffffffc000ffffffffffffe000ffffffffffffe0007ffffffffffff0003ffffffffffff0003ffffffffffff8001ffffffffffff8000ffffffffffffc0007fffffffffffc0003fffffffffffc0001fffffffffffe0000fffffffffffc00007ffffffffffe0000ffffffffffff0001ffffffffffff0003ffffffffffffc003ffffffffffffe007fffffffffffff007fffffffffffffc0ffffffffffffffe1ffc0fffffffffff1ff003ffffffffff1f8000fffffffffe0000000fffffffe000000001ffffff80000000000fffff000000000003fffe000000000000fffc0000000000007ffc0000000000003ff80000000000007ff00000000000003ff00000000000003ff00000000000003ff00000000000003ff00000000000001ff00000000000001ff00000000000000ff00000000000000ff000000000000007f000000000000007f000000000000003f000000000000003f000000000000001f80000000000000078000000000000003800"
+      },
+      "output": {
+        "width": 597,
+        "height": 742,
+        "coverage": 0.4358404782221981
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { getDifficulty } from '../data'
 import type {
+  DifficultyDefinition,
   GameConfig,
   GameInput,
   GameSnapshot,
@@ -21,7 +22,9 @@ export const NET_CAPTURE_DISTANCE = 0.52
 export const NET_CAPTURE_GAP = 24
 export const SAFE_CORRIDOR_WIDTH = 0.44
 export const SAFE_CORRIDOR_HALF = SAFE_CORRIDOR_WIDTH / 2
-export const MIN_HAZARD_REACTION_SECONDS = 1.35
+export const MIN_HAZARD_REACTION_SECONDS = 1.05
+export const MONSTER_CHASE_START_GAP = 30
+export const MONSTER_ESCAPE_GAP = 72
 export const MAX_REVIVES = 3
 export const REVIVE_BASE_COST = 100
 
@@ -273,7 +276,7 @@ function triggerChase(state: GameState): void {
   const pressure = getDifficulty(state.config.difficulty).monsterPressure
   const cadence = 1.15 * (state.config.mode === 'extreme' ? 1.1 : 1)
   state.monster.state = 'chasing'
-  state.monster.gap = 38
+  state.monster.gap = MONSTER_CHASE_START_GAP
   state.monster.age = 0
   state.net = {
     ...emptyNet(),
@@ -415,8 +418,9 @@ function obstacleDimensions(kind: WorldObject['kind']): { width: number; height:
 export function planHazardRow(
   rng: () => number,
   previousCenter: number,
-  spacing: number
+  difficulty: Pick<DifficultyDefinition, 'spacing' | 'hazardWeights'>
 ): HazardRowPlan {
+  const { spacing, hazardWeights } = difficulty
   const shiftLimit = 0.7
   const desiredCenter = previousCenter + randomBetween(rng, -shiftLimit, shiftLimit)
   const safeCenter = Math.max(-0.52, Math.min(0.52, desiredCenter))
@@ -424,18 +428,22 @@ export function planHazardRow(
   const hazards: RowEntityPlan[] = []
   const items: RowEntityPlan[] = []
   const hazardRoll = rng()
-  const tripleChance = Math.min(0.44, Math.max(0, (1 - spacing) * 0.72))
-  const doubleChance = Math.min(0.58, 0.48 / Math.max(0.58, spacing))
-  const hazardCount =
-    hazardRoll < tripleChance ? 3 : hazardRoll < tripleChance + doubleChance ? 2 : 1
+  let hazardCount = 1
+  let cumulativeWeight = 0
+  for (let index = 0; index < hazardWeights.length; index += 1) {
+    cumulativeWeight += hazardWeights[index]
+    if (hazardRoll < cumulativeWeight) {
+      hazardCount = index + 1
+      break
+    }
+  }
   const leftEdge = -0.94
   const rightEdge = 0.94
-  const firstSide = rng() > 0.5 ? 1 : -1
 
   for (let index = 0; index < hazardCount; index += 1) {
     let placed = false
-    for (let attempt = 0; attempt < 24 && !placed; attempt += 1) {
-      const side = (index + (rng() > 0.76 ? 1 : 0)) % 2 === 0 ? firstSide : -firstSide
+    for (let attempt = 0; attempt < 40 && !placed; attempt += 1) {
+      const side = rng() > 0.5 ? 1 : -1
       const kind = pickObstacleKind(rng)
       const dimensions = obstacleDimensions(kind)
       const minX =
@@ -523,7 +531,7 @@ export function planHazardRow(
 
 function spawnHazardRow(state: GameState): void {
   const difficulty = getDifficulty(state.config.difficulty)
-  const plan = planHazardRow(state.rng, state.safeCenter, difficulty.spacing)
+  const plan = planHazardRow(state.rng, state.safeCenter, difficulty)
   state.safeCenter = plan.safeCenter
 
   for (const hazard of plan.hazards) {
@@ -657,7 +665,7 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
 
   if (applyDamage(state, 'obstacle', 1) !== 'damaged') return
   state.invulnerability = state.config.character === 'egg' ? 1.4 : 1
-  state.monster.gap = Math.max(0, state.monster.gap - 7)
+  state.monster.gap = Math.max(0, state.monster.gap - 10)
   state.shake = 0.55
   state.flash = 0.3
 }
@@ -708,10 +716,10 @@ function updateMonster(state: GameState, dt: number, forward: number): void {
   const acceleratePush = state.motionState === 'accelerating' ? 1.5 : 0
   const pressure =
     difficulty.monsterPressure *
-    (1.05 + monster.age * 0.005) *
+    (1.1 + monster.age * 0.012) *
     (state.debuffTimer > 0 ? 1.25 : 1)
   monster.gap += (boostPush + acceleratePush - pressure) * dt
-  if (monster.gap > 78) {
+  if (monster.gap > MONSTER_ESCAPE_GAP) {
     missMonster(state)
     state.events.push('monsterStop')
     return

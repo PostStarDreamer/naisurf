@@ -75,6 +75,7 @@ export interface DifficultyDefinition {
   monsterPressure: number
   reward: number
   rowWindow: number
+  hazardWeights: [number, number, number, number]
 }
 
 export interface GameSettings {

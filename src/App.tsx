@@ -130,6 +130,7 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
   const audioRef = useRef<AudioEngine | null>(null)
+  const audioActivatedRef = useRef(false)
   const saveRef = useRef(save)
   saveRef.current = save
 
@@ -172,14 +173,41 @@ export function App() {
   }, [])
 
   useEffect(() => {
+    const activateAudio = () => {
+      audioActivatedRef.current = true
+      void audio.startHomeMusic()
+    }
+    window.addEventListener('pointerdown', activateAudio, { once: true })
+    window.addEventListener('keydown', activateAudio, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', activateAudio)
+      window.removeEventListener('keydown', activateAudio)
+    }
+  }, [audio])
+
+  useEffect(() => {
+    if (!audioActivatedRef.current) return
+    if (screen === 'game') {
+      void audio.startGameMusic()
+    } else {
+      void audio.startHomeMusic()
+    }
+  }, [audio, screen])
+
+  useEffect(() => {
+    const updatePageAudio = () => audio.setPageMuted(document.hidden)
+    document.addEventListener('visibilitychange', updatePageAudio)
+    return () => document.removeEventListener('visibilitychange', updatePageAudio)
+  }, [audio])
+
+  useEffect(() => {
     return () => {
       if (toastTimer.current) window.clearTimeout(toastTimer.current)
-      audio.stopMusic()
+      audio.dispose()
     }
   }, [audio])
 
   const startRun = useCallback(() => {
-    void audio.startMusic()
     if (!save.tutorialSeen || (save.guideVersion ?? 0) < CURRENT_GUIDE_VERSION) {
       setPendingStart(true)
       setTutorialOpen(true)
@@ -201,7 +229,6 @@ export function App() {
     setResult(null)
     setRunId((value) => value + 1)
     setScreen('game')
-    void audio.startMusic()
   }
 
   const closeTutorial = () => {
@@ -594,7 +621,7 @@ export function App() {
             <strong>第一次冲浪？</strong>
           </div>
           <div className="tip-item"><span>01</span><p><strong>看准浪门</strong>穿门别偏，发夹弯的连击才接得住。</p></div>
-          <div className="tip-item"><span>02</span><p><strong>冲刺别乱按</strong>奶鲨逼近时再按 F 或底部闪电，留一点能量更稳。</p></div>
+          <div className="tip-item"><span>02</span><p><strong>冲刺别乱按</strong>奶鲨逼近时再按 Shift 或底部闪电，留一点能量更稳。</p></div>
           <div className="tip-item"><span>03</span><p><strong>认准颜色</strong>珊瑚红“!”要躲，黄色“+”能用，紫色“−”会让浪板变沉。</p></div>
         </section>
       </main>
@@ -605,7 +632,7 @@ export function App() {
         <div>
           {installPrompt && <button onClick={installPwa}>安装到设备</button>}
           <button onClick={() => setGuideOpen(true)}>玩法说明</button>
-          <span>v1.3</span>
+          <span>v1.4</span>
         </div>
       </footer>
 

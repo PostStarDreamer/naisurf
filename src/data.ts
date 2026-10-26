@@ -72,7 +72,7 @@ export const CHARACTERS: CharacterDefinition[] = [
 ]
 
 export const UNLOCK_ORDER: CharacterId[] = ['egg', 'mouse', 'chicken', 'dog', 'frog']
-export const CURRENT_GUIDE_VERSION = 3
+export const CURRENT_GUIDE_VERSION = 4
 
 export const MODES: ModeDefinition[] = [
   {
@@ -113,46 +113,50 @@ export const DIFFICULTIES: DifficultyDefinition[] = [
   {
     id: 'easy',
     name: '简单',
-    description: '先熟悉转向和冲刺。浪面更宽，留给你反应的时间也更多。',
-    speed: 1,
-    spacing: 1,
-    rampGain: 0.12,
-    monsterPressure: 1,
+    description: '先熟悉转向和冲刺。浪面更宽，但仍会随着时间逐渐加压。',
+    speed: 1.04,
+    spacing: 0.92,
+    rampGain: 0.16,
+    monsterPressure: 1.12,
     reward: 1,
-    rowWindow: 1.55
+    rowWindow: 1.4,
+    hazardWeights: [0.58, 0.42, 0, 0]
   },
   {
     id: 'medium',
     name: '中等',
-    description: '标准节奏。障碍、奶鲨和道具都会认真招呼你。',
-    speed: 1.18,
-    spacing: 0.8,
-    rampGain: 0.22,
-    monsterPressure: 1.25,
+    description: '标准节奏。越到后面浪越快，障碍与奶鲨都会持续加压。',
+    speed: 1.3,
+    spacing: 0.68,
+    rampGain: 0.32,
+    monsterPressure: 1.6,
     reward: 1.12,
-    rowWindow: 1.45
+    rowWindow: 1.25,
+    hazardWeights: [0.28, 0.52, 0.2, 0]
   },
   {
     id: 'hard',
     name: '困难',
-    description: '浪面更挤，奶鲨追得更紧。适合已经摸熟手感的浪友。',
-    speed: 1.46,
-    spacing: 0.62,
-    rampGain: 0.3,
-    monsterPressure: 1.6,
+    description: '浪面拥挤，奶鲨贴着浪尾追。留给失误的空间已经很少。',
+    speed: 1.68,
+    spacing: 0.48,
+    rampGain: 0.48,
+    monsterPressure: 2.2,
     reward: 1.28,
-    rowWindow: 1.35
+    rowWindow: 1.1,
+    hazardWeights: [0, 0.2, 0.5, 0.3]
   },
   {
     id: 'hell',
     name: '地狱',
-    description: '开局就很凶，后面还会一路加速。留好冲刺，别眨眼。',
-    speed: 2.05,
-    spacing: 0.48,
-    rampGain: 0.4,
-    monsterPressure: 1.95,
+    description: '高速起浪，障碍成排压来。只留给熟练浪友一条窄路。',
+    speed: 2.3,
+    spacing: 0.36,
+    rampGain: 0.64,
+    monsterPressure: 2.95,
     reward: 1.48,
-    rowWindow: 1.35
+    rowWindow: 1.05,
+    hazardWeights: [0, 0.1, 0.48, 0.42]
   }
 ]
 

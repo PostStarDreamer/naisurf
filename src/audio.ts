@@ -1,4 +1,4 @@
-import type { GameSettings } from './types'
+import type { GameSettings, MotionState } from './types'
 
 type SfxName =
   | 'collect'
@@ -17,14 +17,34 @@ type SfxName =
   | 'brake'
   | 'revive'
 
+type MusicScene = 'home' | 'game'
+
+const HOME_THEME_URL = `${import.meta.env.BASE_URL}audio/ocean-theme.mp3`.replace(
+  /([^:]\/)\/+/g,
+  '$1'
+)
+
 export class AudioEngine {
   private context?: AudioContext
+  private masterGain?: GainNode
   private musicGain?: GainNode
+  private homeGain?: GainNode
+  private gameGain?: GainNode
   private sfxGain?: GainNode
   private musicTimer?: number
   private chaseOscillator?: OscillatorNode
   private chaseGain?: GainNode
+  private homeBuffer?: AudioBuffer
+  private homeSource?: AudioBufferSourceNode
+  private homeLoad?: Promise<void>
+  private noiseBuffer?: AudioBuffer
+  private scene: MusicScene | 'idle' = 'idle'
+  private pageMuted = false
   private step = 0
+  private nextMusicAt = 0
+  private pace = 1
+  private chaseIntensity = 0
+  private motionState: MotionState = 'cruise'
   private settings: Pick<GameSettings, 'musicVolume' | 'sfxVolume'>
 
   constructor(settings: Pick<GameSettings, 'musicVolume' | 'sfxVolume'>) {
@@ -38,10 +58,18 @@ export class AudioEngine {
         (window as typeof window & { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext
       this.context = new Context()
+      this.masterGain = this.context.createGain()
       this.musicGain = this.context.createGain()
+      this.homeGain = this.context.createGain()
+      this.gameGain = this.context.createGain()
       this.sfxGain = this.context.createGain()
-      this.musicGain.connect(this.context.destination)
-      this.sfxGain.connect(this.context.destination)
+      this.homeGain.gain.value = 0
+      this.gameGain.gain.value = 0
+      this.musicGain.connect(this.masterGain)
+      this.homeGain.connect(this.musicGain)
+      this.gameGain.connect(this.musicGain)
+      this.sfxGain.connect(this.masterGain)
+      this.masterGain.connect(this.context.destination)
       this.applyVolumes()
     }
     if (this.context.state === 'suspended') {
@@ -54,64 +82,250 @@ export class AudioEngine {
     this.applyVolumes()
   }
 
+  setPageMuted(muted: boolean): void {
+    this.pageMuted = muted
+    this.applyVolumes()
+  }
+
   private applyVolumes(): void {
     if (!this.context) return
     const now = this.context.currentTime
+    this.masterGain?.gain.setTargetAtTime(this.pageMuted ? 0 : 1, now, 0.02)
     this.musicGain?.gain.setTargetAtTime(this.settings.musicVolume, now, 0.03)
     this.sfxGain?.gain.setTargetAtTime(this.settings.sfxVolume, now, 0.02)
   }
 
-  async startMusic(): Promise<void> {
+  private async loadHomeTheme(): Promise<void> {
+    if (this.homeBuffer) return
+    if (!this.homeLoad) {
+      this.homeLoad = (async () => {
+        if (!this.context) return
+        const response = await fetch(HOME_THEME_URL)
+        if (!response.ok) throw new Error(`首页音乐加载失败: ${response.status}`)
+        const audioData = await response.arrayBuffer()
+        this.homeBuffer = await this.context.decodeAudioData(audioData)
+      })().finally(() => {
+        this.homeLoad = undefined
+      })
+    }
+    await this.homeLoad
+  }
+
+  private ensureHomeSource(): void {
+    if (!this.context || !this.homeGain || !this.homeBuffer || this.homeSource) return
+    const source = this.context.createBufferSource()
+    source.buffer = this.homeBuffer
+    source.loop = true
+    source.connect(this.homeGain)
+    source.start()
+    this.homeSource = source
+  }
+
+  private sceneIsGame(): boolean {
+    return this.scene === 'game'
+  }
+
+  async startHomeMusic(): Promise<void> {
+    if (this.scene !== 'game') this.scene = 'home'
     await this.unlock()
-    if (this.musicTimer) return
-    this.musicTimer = window.setInterval(() => this.scheduleMusic(), 180)
-    this.scheduleMusic()
+    if (this.sceneIsGame()) return
+    try {
+      await this.loadHomeTheme()
+    } catch {
+      return
+    }
+    if (this.sceneIsGame()) return
+    this.ensureHomeSource()
+    this.crossfadeTo('home')
+  }
+
+  async startGameMusic(): Promise<void> {
+    await this.unlock()
+    this.scene = 'game'
+    this.startMusicScheduler()
+    this.crossfadeTo('game')
+  }
+
+  private crossfadeTo(scene: MusicScene): void {
+    if (!this.context || !this.homeGain || !this.gameGain) return
+    const now = this.context.currentTime
+    const end = now + 0.6
+    for (const [gain, target] of [
+      [this.homeGain, scene === 'home' ? 1 : 0],
+      [this.gameGain, scene === 'game' ? 1 : 0]
+    ] as const) {
+      gain.gain.cancelScheduledValues(now)
+      gain.gain.setValueAtTime(gain.gain.value, now)
+      gain.gain.linearRampToValueAtTime(target, end)
+    }
+  }
+
+  private startMusicScheduler(): void {
+    if (!this.context || this.musicTimer) return
+    this.nextMusicAt = this.context.currentTime + 0.05
+    this.musicTimer = window.setInterval(() => this.scheduleGameMusic(), 90)
+    this.scheduleGameMusic()
   }
 
   stopMusic(): void {
     if (this.musicTimer) window.clearInterval(this.musicTimer)
     this.musicTimer = undefined
+    this.scene = 'idle'
+    this.crossfadeTo('home')
+  }
+
+  dispose(): void {
+    this.stopMusic()
+    try {
+      this.homeSource?.stop()
+    } catch {
+      // The source may already have ended with the audio context.
+    }
+    this.homeSource = undefined
+    this.chaseOscillator?.stop()
+    this.chaseOscillator = undefined
+    this.chaseGain = undefined
+    void this.context?.close()
+    this.context = undefined
+  }
+
+  setGameDynamics(
+    paceMultiplier: number,
+    chaseIntensity: number,
+    motionState: MotionState
+  ): void {
+    this.pace = Math.max(1, paceMultiplier)
+    this.chaseIntensity = Math.max(0, Math.min(1, chaseIntensity))
+    this.motionState = motionState
   }
 
   setChaseAmbience(active: boolean, intensity = 0): void {
-    if (!this.context) return
+    if (!this.context || !this.gameGain) return
     if (active && !this.chaseOscillator) {
       this.chaseOscillator = this.context.createOscillator()
       this.chaseGain = this.context.createGain()
+      const filter = this.context.createBiquadFilter()
       this.chaseOscillator.type = 'triangle'
       this.chaseOscillator.frequency.value = 54
       this.chaseGain.gain.value = 0
-      this.chaseOscillator.connect(this.chaseGain)
-      this.chaseGain.connect(this.sfxGain!)
+      filter.type = 'lowpass'
+      filter.frequency.value = 180
+      this.chaseOscillator.connect(filter)
+      filter.connect(this.chaseGain)
+      this.chaseGain.connect(this.gameGain)
       this.chaseOscillator.start()
     }
     if (!this.chaseOscillator || !this.chaseGain) return
     const now = this.context.currentTime
-    const volume = active ? 0.025 + Math.max(0, Math.min(1, intensity)) * 0.055 : 0
+    const volume = active ? 0.025 + Math.max(0, Math.min(1, intensity)) * 0.075 : 0
     this.chaseGain.gain.setTargetAtTime(volume, now, active ? 0.12 : 0.25)
-    if (this.chaseOscillator) {
-      this.chaseOscillator.frequency.setTargetAtTime(48 + intensity * 24, now, 0.2)
+    this.chaseOscillator.frequency.setTargetAtTime(48 + intensity * 28, now, 0.2)
+  }
+
+  private scheduleGameMusic(): void {
+    if (!this.context || !this.gameGain || this.settings.musicVolume <= 0) return
+    const tempo = 80 + Math.min(42, (this.pace - 1) * 25) + this.chaseIntensity * 8
+    const stepDuration = 60 / tempo / 2
+    const horizon = this.context.currentTime + 0.22
+    while (this.nextMusicAt < horizon) {
+      this.scheduleMusicStep(this.step, this.nextMusicAt, stepDuration)
+      this.step += 1
+      this.nextMusicAt += stepDuration
     }
   }
 
-  private scheduleMusic(): void {
-    if (!this.context || !this.musicGain || this.settings.musicVolume <= 0) return
-    const melody = [0, 4, 7, 9, 7, 4, 2, 7, 0, 4, 11, 9, 7, 2, 4, 2]
+  private scheduleMusicStep(step: number, time: number, stepDuration: number): void {
+    if (!this.gameGain) return
+    const melody = [0, 7, 9, 12, 9, 7, 4, 7, 0, 7, 11, 12, 14, 11, 7, 4]
     const bass = [0, 0, 5, 5, 2, 2, 7, 7]
-    const now = this.context.currentTime + 0.02
-    const pitch = melody[this.step % melody.length]
-    const root = 196
-    this.playTone(root * 2 ** (pitch / 12), now, 0.12, 'square', 0.035)
-    if (this.step % 2 === 0) {
+    const phrase = 196
+    const note = melody[step % melody.length]
+    const motionGain = this.motionState === 'braking' ? 0.72 : 1
+    this.playTone(
+      phrase * 2 ** (note / 12),
+      time,
+      stepDuration * 1.7,
+      'triangle',
+      0.031 * motionGain,
+      this.gameGain
+    )
+
+    if (step % 2 === 0) {
       this.playTone(
-        root * 2 ** (bass[Math.floor(this.step / 2) % bass.length] / 12),
-        now,
-        0.2,
-        'triangle',
-        0.026
+        phrase * 2 ** (bass[Math.floor(step / 2) % bass.length] / 12) * 0.5,
+        time,
+        stepDuration * 2.6,
+        'sine',
+        0.034,
+        this.gameGain
       )
     }
-    this.step += 1
+    if (step % 8 === 0) {
+      this.playTone(
+        phrase * 2 ** ((note + 4) / 12) * 2,
+        time,
+        stepDuration * 7,
+        'sine',
+        0.014,
+        this.gameGain
+      )
+    }
+    if (step % 4 === 0) {
+      this.playNoise(time, 0.09, 0.018, 950)
+    }
+    if (this.chaseIntensity > 0.08 && step % 2 === 1) {
+      this.playTone(
+        62 + this.chaseIntensity * 23,
+        time,
+        stepDuration * 0.85,
+        'sine',
+        0.022 + this.chaseIntensity * 0.025,
+        this.gameGain
+      )
+    }
+  }
+
+  private getNoiseBuffer(): AudioBuffer | undefined {
+    if (!this.context) return undefined
+    if (this.noiseBuffer) return this.noiseBuffer
+    const buffer = this.context.createBuffer(
+      1,
+      Math.floor(this.context.sampleRate * 0.5),
+      this.context.sampleRate
+    )
+    const data = buffer.getChannelData(0)
+    let value = 0.35
+    for (let index = 0; index < data.length; index += 1) {
+      value = value * 0.94 + (Math.random() * 2 - 1) * 0.06
+      data[index] = value
+    }
+    this.noiseBuffer = buffer
+    return buffer
+  }
+
+  private playNoise(
+    time: number,
+    duration: number,
+    volume: number,
+    cutoff: number
+  ): void {
+    if (!this.context || !this.gameGain) return
+    const buffer = this.getNoiseBuffer()
+    if (!buffer) return
+    const source = this.context.createBufferSource()
+    const filter = this.context.createBiquadFilter()
+    const envelope = this.context.createGain()
+    source.buffer = buffer
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(cutoff, time)
+    envelope.gain.setValueAtTime(0.0001, time)
+    envelope.gain.linearRampToValueAtTime(volume, time + 0.02)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, time + duration)
+    source.connect(filter)
+    filter.connect(envelope)
+    envelope.connect(this.gameGain)
+    source.start(time)
+    source.stop(time + duration + 0.03)
   }
 
   private playTone(
@@ -119,20 +333,21 @@ export class AudioEngine {
     time: number,
     duration: number,
     type: OscillatorType,
-    volume: number
+    volume: number,
+    destination: AudioNode
   ): void {
-    if (!this.context || !this.musicGain) return
+    if (!this.context) return
     const oscillator = this.context.createOscillator()
     const envelope = this.context.createGain()
     oscillator.type = type
     oscillator.frequency.setValueAtTime(frequency, time)
     envelope.gain.setValueAtTime(0, time)
-    envelope.gain.linearRampToValueAtTime(volume, time + 0.01)
+    envelope.gain.linearRampToValueAtTime(volume, time + 0.015)
     envelope.gain.exponentialRampToValueAtTime(0.0001, time + duration)
     oscillator.connect(envelope)
-    envelope.connect(this.musicGain)
+    envelope.connect(destination)
     oscillator.start(time)
-    oscillator.stop(time + duration + 0.02)
+    oscillator.stop(time + duration + 0.03)
   }
 
   async sfx(name: SfxName): Promise<void> {
@@ -149,7 +364,10 @@ export class AudioEngine {
         [780, 0.12, 'triangle'],
         [1040, 0.16, 'triangle']
       ],
-      boost: [[170, 0.18, 'sawtooth']],
+      boost: [
+        [150, 0.2, 'sawtooth'],
+        [260, 0.18, 'triangle']
+      ],
       hit: [
         [110, 0.14, 'square'],
         [82, 0.18, 'sawtooth']
@@ -206,6 +424,12 @@ export class AudioEngine {
       const start = now + index * 0.055
       oscillator.type = type
       oscillator.frequency.setValueAtTime(frequency, start)
+      if (name === 'boost') {
+        oscillator.frequency.exponentialRampToValueAtTime(
+          frequency * 1.8,
+          start + duration
+        )
+      }
       envelope.gain.setValueAtTime(0.0001, start)
       envelope.gain.linearRampToValueAtTime(0.12, start + 0.01)
       envelope.gain.exponentialRampToValueAtTime(0.0001, start + duration)
@@ -214,5 +438,24 @@ export class AudioEngine {
       oscillator.start(start)
       oscillator.stop(start + duration + 0.02)
     })
+
+    if (name === 'boost' || name === 'brake') {
+      const source = this.context.createBufferSource()
+      const filter = this.context.createBiquadFilter()
+      const envelope = this.context.createGain()
+      const buffer = this.getNoiseBuffer()
+      if (!buffer) return
+      source.buffer = buffer
+      filter.type = 'bandpass'
+      filter.frequency.value = name === 'brake' ? 650 : 1200
+      envelope.gain.setValueAtTime(0.0001, now)
+      envelope.gain.linearRampToValueAtTime(0.07, now + 0.015)
+      envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.24)
+      source.connect(filter)
+      filter.connect(envelope)
+      envelope.connect(this.sfxGain)
+      source.start(now)
+      source.stop(now + 0.25)
+    }
   }
 }

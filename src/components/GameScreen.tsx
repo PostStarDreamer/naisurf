@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getMode } from '../data'
 import {
   MAX_REVIVES,
+  MONSTER_ESCAPE_GAP,
   beginGamePlay,
   createRunGame,
   endDownedRun,
@@ -208,7 +209,14 @@ export function GameScreen({
       }
       audio.setChaseAmbience(
         !state.downed && state.monster.state === 'chasing',
-        Math.max(0, 1 - state.monster.gap / 78)
+        Math.max(0, 1 - state.monster.gap / MONSTER_ESCAPE_GAP)
+      )
+      audio.setGameDynamics(
+        state.paceMultiplier,
+        state.monster.state === 'chasing'
+          ? Math.max(0, 1 - state.monster.gap / MONSTER_ESCAPE_GAP)
+          : 0,
+        state.motionState
       )
       renderGame(context, state, assetsRef.current, settings)
       hudElapsed += dt
@@ -260,14 +268,14 @@ export function GameScreen({
         if (key === 'escape') setRulesOpen(false)
         return
       }
-      if (['w', 'a', 's', 'd', 'f', ' ', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(key)) {
+      if (['w', 'a', 's', 'd', 'shift', ' ', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(key)) {
         event.preventDefault()
       }
       if (key === 'a') keyboardRef.current.left = true
       if (key === 'd') keyboardRef.current.right = true
       if (key === 'w') keyboardRef.current.accelerate = true
       if (key === 's') keyboardRef.current.brake = true
-      if (key === 'f') keyboardRef.current.boost = true
+      if (key === 'shift') keyboardRef.current.boost = true
       if (key === ' ') {
         if (!gameRef.current.ended) {
           gameRef.current.paused = !gameRef.current.paused
@@ -291,7 +299,7 @@ export function GameScreen({
       if (key === 'd') keyboardRef.current.right = false
       if (key === 'w') keyboardRef.current.accelerate = false
       if (key === 's') keyboardRef.current.brake = false
-      if (key === 'f') keyboardRef.current.boost = false
+      if (key === 'shift') keyboardRef.current.boost = false
     }
     const onBlur = () => releaseInput()
     const onVisibility = () => {
@@ -365,7 +373,10 @@ export function GameScreen({
     }
   })
 
-  const chasePercent = Math.max(0, Math.min(100, (hud.monsterGap / 78) * 100))
+  const chasePercent = Math.max(
+    0,
+    Math.min(100, (hud.monsterGap / MONSTER_ESCAPE_GAP) * 100)
+  )
   const countdownNumber = Math.max(1, Math.ceil(hud.countdown))
   const reviveAffordable = walletBalance >= hud.reviveCost && hud.canRevive
   const revivesRemaining = Math.max(0, MAX_REVIVES - hud.revivesUsed)
@@ -694,7 +705,7 @@ export function GameScreen({
       <div className="game-control-strip">
         <span><kbd>A</kbd><kbd>D</kbd> 转向</span>
         <span><kbd>W</kbd> 加速 <kbd>S</kbd> 刹车</span>
-        <span><kbd>F</kbd> 冲刺</span>
+        <span><kbd>Shift</kbd> 冲刺</span>
         <span><kbd>空格</kbd> 暂停</span>
         <span className="desktop-only"><kbd>Esc</kbd> 暂停菜单</span>
         <span className="mobile-only">按住左右半屏转向 · 底部控制速度</span>

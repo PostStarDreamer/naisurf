@@ -2,5 +2,6 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+__pycache__/
 .DS_Store
 qa/

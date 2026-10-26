@@ -239,10 +239,10 @@ describe('naisurf game rules', () => {
 
   it('keeps raising speed without a hard cap', () => {
     const gains: Record<Difficulty, number> = {
-      easy: 0.12,
-      medium: 0.22,
-      hard: 0.3,
-      hell: 0.4
+      easy: getDifficulty('easy').rampGain,
+      medium: getDifficulty('medium').rampGain,
+      hard: getDifficulty('hard').rampGain,
+      hell: getDifficulty('hell').rampGain
     }
     for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
       const game = quietRun({ difficulty })
@@ -497,21 +497,30 @@ describe('monster and net state machine', () => {
 })
 
 describe('safe obstacle generation', () => {
-  it('always keeps a 0.44-wide corridor with a reachable next centre', () => {
+  it('keeps a 0.44-wide corridor reachable even with the worst base handling', () => {
     for (const profile of DIFFICULTIES) {
-      for (let seed = 1; seed <= 12; seed++) {
+      let sawThreeOrMore = false
+      for (let seed = 1; seed <= 64; seed++) {
         let value = seed
         const rng = () => {
           value = (value * 1664525 + 1013904223) >>> 0
           return value / 4294967296
         }
         let previous = 0
-        for (let row = 0; row < 300; row++) {
-          const plan = planHazardRow(rng, previous, getDifficulty(profile.id).spacing)
+        for (let row = 0; row < 500; row++) {
+          const difficulty = getDifficulty(profile.id)
+          const plan = planHazardRow(rng, previous, difficulty)
+          const requiredShift = Math.abs(plan.safeCenter - previous)
+          const worstTurnSpeed = 1.52 * 0.95 * 0.8
+          const reachTime = requiredShift / worstTurnSpeed + 1 / 8
           expect(plan.safeHalfWidth * 2).toBeGreaterThanOrEqual(SAFE_CORRIDOR_WIDTH)
           expect(Math.abs(plan.safeCenter - previous)).toBeLessThanOrEqual(0.700001)
+          expect(reachTime).toBeLessThan(
+            Math.max(MIN_HAZARD_REACTION_SECONDS, difficulty.rowWindow) * 0.9
+          )
           expect(plan.hazards.length).toBeGreaterThanOrEqual(1)
-          expect(plan.hazards.length).toBeLessThanOrEqual(3)
+          expect(plan.hazards.length).toBeLessThanOrEqual(4)
+          sawThreeOrMore ||= plan.hazards.length >= 3
           expect(plan.items.length).toBeGreaterThanOrEqual(1)
           expect(plan.items.length).toBeLessThanOrEqual(2)
           for (const hazard of plan.hazards) {
@@ -538,8 +547,11 @@ describe('safe obstacle generation', () => {
           previous = plan.safeCenter
         }
       }
+      if (profile.id === 'hard' || profile.id === 'hell') {
+        expect(sawThreeOrMore).toBe(true)
+      }
     }
-  })
+  }, 30000)
 
   it('never schedules hazard rows closer than the minimum reaction window', () => {
     for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
