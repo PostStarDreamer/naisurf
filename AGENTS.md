@@ -167,9 +167,9 @@
 
 ## 待完成
 
-- [ ] GitHub `main` 提交、推送和 Pages 部署。
-- [ ] 公开网址 v1.5 内容、音频、素材、反馈和 PWA 验证。
-- [ ] 部署后补写最终提交、Actions run 和线上验收记录。
+- [x] GitHub `main` 提交、推送和 Pages 部署。
+- [x] 公开网址 v1.5 内容、音频、素材、反馈和 PWA 验证。
+- [x] 部署后补写最终提交、Actions run 和线上验收记录。
 
 ## v1.3 公开部署记录
 
@@ -191,6 +191,18 @@
 - 公开网址已验证 v1.4 页脚、742px 以上高清角色/奶鲨素材、音乐请求与 Web Audio 解码、`Shift` 冲刺和游戏连续动画。
 - 公开网址首次在线加载后断网重载成功，断网状态下可打开首页并进入游戏，无控制台错误或失败请求。
 - Git HTTPS 智能协议连接超时后，按既定边界使用已授权 GitHub API 完成等树发布，没有强制推送。
+
+## v1.5 公开部署记录
+
+- 发布日期：2026-10-26。
+- 本地功能发布提交：`4251e1e22a33887395a16969cc28ce1dc61179b7`。
+- GitHub API 发布的等价 `main` 提交：`5e6b30f6978b6dd3b4b5f61b1f0f451210d716e0`；上传后 Git tree 与本地提交完全一致。
+- GitHub Actions run：https://github.com/PostStarDreamer/naisurf/actions/runs/40335813489
+- `build` 与 `deploy` job 均成功；PWA 预缓存 41 项，包含音乐与打赏码。
+- 公开网址已验证 v1.5 页脚、1152×1152 打赏码、公开 HTTPS 到本机反馈桥接、音乐按钮恢复、`Shift` 冲刺和断网进入游戏。
+- 公开验收无控制台错误或失败请求。
+- 本机任务 `naisurf-feedback-bridge` 持续运行，`naisurf-feedback-export` 下次执行时间为次日 `00:05`。
+- Git 因 v1.4 API 等价提交元数据被判定为非快进，继续使用 GitHub API 等树发布，没有制造合并提交或强制推送。
 
 ## 安全与改动边界
 
