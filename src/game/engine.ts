@@ -602,6 +602,7 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
       state.bestStreak = Math.max(state.bestStreak, state.streak)
     } else {
       state.streak = 0
+      finish(state, 'gateMissed')
     }
     return
   }

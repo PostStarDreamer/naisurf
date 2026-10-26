@@ -51,6 +51,14 @@ function clamp(value: number, min = -1, max = 1): number {
   return Math.max(min, Math.min(max, value))
 }
 
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 21s-7.1-4.4-9.2-8.9C1.2 8.6 3.3 5 6.9 5c2 0 3.5.9 5.1 2.7C13.6 5.9 15.1 5 17.1 5c3.6 0 5.7 3.6 4.1 7.1C19.1 16.6 12 21 12 21Z" />
+    </svg>
+  )
+}
+
 export function GameScreen({
   config,
   settings,
@@ -482,7 +490,7 @@ export function GameScreen({
           >
             {Array.from({ length: hud.maxLives }).map((_, index) => (
               <span key={index} className={index < hud.lives ? 'heart full' : 'heart'}>
-                ♥
+                <HeartIcon filled={index < hud.lives} />
               </span>
             ))}
           </div>

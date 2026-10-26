@@ -6,74 +6,50 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $node = (Get-Command node -ErrorAction Stop).Source
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-$bridgeName = 'naisurf-feedback-bridge'
 $exportName = 'naisurf-feedback-export'
+$legacyBridgeName = 'naisurf-feedback-bridge'
+
+$legacyBridge = Get-ScheduledTask -TaskName $legacyBridgeName -ErrorAction SilentlyContinue
+if ($legacyBridge) {
+  Stop-ScheduledTask -TaskName $legacyBridgeName -ErrorAction SilentlyContinue
+  Unregister-ScheduledTask -TaskName $legacyBridgeName -Confirm:$false
+}
 
 if ($Uninstall) {
-  foreach ($name in @($bridgeName, $exportName)) {
-    $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
-    if ($task) {
-      Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
-      Unregister-ScheduledTask -TaskName $name -Confirm:$false
-    }
+  $exportTask = Get-ScheduledTask -TaskName $exportName -ErrorAction SilentlyContinue
+  if ($exportTask) {
+    Stop-ScheduledTask -TaskName $exportName -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $exportName -Confirm:$false
   }
-  Write-Output 'naisurf feedback tasks removed.'
+  Write-Output 'naisurf GitHub feedback export task removed.'
   exit 0
 }
 
-$bridgeScript = Join-Path $PSScriptRoot 'feedback-bridge.mjs'
 $exportScript = Join-Path $PSScriptRoot 'export-feedback.mjs'
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-
-$bridgeAction = New-ScheduledTaskAction `
+$action = New-ScheduledTaskAction `
   -Execute $node `
-  -Argument ('"{0}"' -f $bridgeScript) `
+  -Argument ('"{0}"' -f $exportScript) `
   -WorkingDirectory $root
-$bridgeTrigger = New-ScheduledTaskTrigger -AtLogOn -User $user
-$bridgeSettings = New-ScheduledTaskSettingsSet `
+$trigger = New-ScheduledTaskTrigger -Daily -At '00:05'
+$settings = New-ScheduledTaskSettingsSet `
   -Hidden `
   -StartWhenAvailable `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
   -RestartCount 3 `
-  -RestartInterval (New-TimeSpan -Minutes 1) `
-  -ExecutionTimeLimit (New-TimeSpan -Days 3650)
-
-Register-ScheduledTask `
-  -TaskName $bridgeName `
-  -Description 'naisurf local feedback bridge' `
-  -Action $bridgeAction `
-  -Trigger $bridgeTrigger `
-  -Settings $bridgeSettings `
-  -Principal $principal `
-  -Force | Out-Null
-
-$exportAction = New-ScheduledTaskAction `
-  -Execute $node `
-  -Argument ('"{0}"' -f $exportScript) `
-  -WorkingDirectory $root
-$exportTrigger = New-ScheduledTaskTrigger -Daily -At '00:05'
-$exportSettings = New-ScheduledTaskSettingsSet `
-  -Hidden `
-  -StartWhenAvailable `
-  -AllowStartIfOnBatteries `
-  -DontStopIfGoingOnBatteries `
+  -RestartInterval (New-TimeSpan -Minutes 5) `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
 
 Register-ScheduledTask `
   -TaskName $exportName `
-  -Description 'naisurf daily feedback export' `
-  -Action $exportAction `
-  -Trigger $exportTrigger `
-  -Settings $exportSettings `
+  -Description 'naisurf daily GitHub feedback export' `
+  -Action $action `
+  -Trigger $trigger `
+  -Settings $settings `
   -Principal $principal `
   -Force | Out-Null
 
-$running = Get-NetTCPConnection -LocalPort 4317 -State Listen -ErrorAction SilentlyContinue
-if (-not $running) {
-  Start-ScheduledTask -TaskName $bridgeName
-}
-
-Get-ScheduledTask -TaskName $bridgeName, $exportName |
+Get-ScheduledTask -TaskName $exportName |
   Select-Object TaskName, State |
   Format-Table -AutoSize

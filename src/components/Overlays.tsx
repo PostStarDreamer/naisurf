@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { submitFeedback } from '../feedback'
+import { openFeedbackIssue } from '../feedback'
 import {
   CHARACTERS,
   MODES,
@@ -353,25 +353,20 @@ export function DonationModal({ onClose }: { onClose: () => void }) {
 
 export function FeedbackModal({ onClose }: { onClose: () => void }) {
   const [content, setContent] = useState('')
-  const [sending, setSending] = useState(false)
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
   const valid = content.trim().length >= 2 && content.trim().length <= 500
 
-  const submit = async () => {
-    if (!valid || sending) return
-    setSending(true)
+  const submit = () => {
+    if (!valid) return
     setFailed(false)
     setMessage('')
     try {
-      await submitFeedback(content)
-      setContent('')
-      setMessage('已经投进本机反馈信箱，谢谢你的认真体验。')
+      openFeedbackIssue(content)
+      setMessage('已打开 GitHub 新建 Issue 页面，确认发布后其他玩家也能看到。')
     } catch (error) {
       setFailed(true)
-      setMessage(error instanceof Error ? error.message : '本机反馈服务暂时没有响应。')
-    } finally {
-      setSending(false)
+      setMessage(error instanceof Error ? error.message : '无法打开 GitHub。')
     }
   }
 
@@ -379,9 +374,9 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
     <Modal onClose={onClose} titleId="feedback-title">
       <div className="modal-heading">
         <div>
-          <span className="tiny-label">LOCAL FEEDBACK</span>
+          <span className="tiny-label">PLAYER FEEDBACK</span>
           <h2 id="feedback-title">给这朵浪写封信</h2>
-          <p>反馈只保存到当前电脑，不会上传到公开服务器。</p>
+          <p>提交后会在 GitHub 创建公开 Issue，需要登录 GitHub 账号。</p>
         </div>
       </div>
       <label className="feedback-field">
@@ -401,10 +396,10 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
       </label>
       <button
         className="primary-button feedback-submit"
-        disabled={!valid || sending}
+        disabled={!valid}
         onClick={submit}
       >
-        {sending ? '正在投递…' : '投进反馈信箱'}
+        在 GitHub 提交反馈
       </button>
       {message && (
         <p
@@ -617,6 +612,8 @@ export function ResultOverlay({
   const reasonText =
     result.reason === 'finished'
       ? '你准时抵达了终点。'
+      : result.reason === 'gateMissed'
+        ? '漏过浪门，连门挑战结束。'
       : result.reason === 'caught'
         ? '奶鲨这一下太狠，生命耗尽了。'
         : '冲浪板翻了，再试一次会更稳。'
@@ -625,7 +622,13 @@ export function ResultOverlay({
     <div className="result-layer">
       <section className="result-card" aria-labelledby="result-title">
         {newRecord && <div className="record-ribbon">NEW RECORD</div>}
-        <span className="tiny-label">{result.reason === 'finished' ? 'SHORE REACHED' : 'WAVE OVER'}</span>
+        <span className="tiny-label">
+          {result.reason === 'finished'
+            ? 'SHORE REACHED'
+            : result.reason === 'gateMissed'
+              ? 'CHAIN BROKEN'
+              : 'WAVE OVER'}
+        </span>
         <h2 id="result-title">{newRecord ? '新纪录！' : '这一浪结束啦'}</h2>
         <p>{reasonText}</p>
         <div className="result-score">

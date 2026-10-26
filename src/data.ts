@@ -72,7 +72,7 @@ export const CHARACTERS: CharacterDefinition[] = [
 ]
 
 export const UNLOCK_ORDER: CharacterId[] = ['egg', 'mouse', 'chicken', 'dog', 'frog']
-export const CURRENT_GUIDE_VERSION = 4
+export const CURRENT_GUIDE_VERSION = 5
 
 export const MODES: ModeDefinition[] = [
   {
@@ -95,7 +95,7 @@ export const MODES: ModeDefinition[] = [
     id: 'zigzag',
     name: '发夹弯',
     kicker: '左右穿门，连住这一浪',
-    description: '瞄准漂浮浪门连续穿过。漏掉一道，连门数就会重新开始。',
+    description: '瞄准漂浮浪门连续穿过。漏掉一道，本轮连门挑战立即结束。',
     scoreLabel: '最高连门',
     icon: '≋'
   },
@@ -114,46 +114,46 @@ export const DIFFICULTIES: DifficultyDefinition[] = [
     id: 'easy',
     name: '简单',
     description: '先熟悉转向和冲刺。浪面更宽，但仍会随着时间逐渐加压。',
-    speed: 1.04,
-    spacing: 0.92,
-    rampGain: 0.16,
-    monsterPressure: 1.12,
+    speed: 1.08,
+    spacing: 0.9,
+    rampGain: 0.21,
+    monsterPressure: 1.17,
     reward: 1,
-    rowWindow: 1.4,
+    rowWindow: 1.36,
     hazardWeights: [0.58, 0.42, 0, 0]
   },
   {
     id: 'medium',
     name: '中等',
     description: '标准节奏。越到后面浪越快，障碍与奶鲨都会持续加压。',
-    speed: 1.3,
-    spacing: 0.68,
-    rampGain: 0.32,
-    monsterPressure: 1.6,
+    speed: 1.35,
+    spacing: 0.66,
+    rampGain: 0.42,
+    monsterPressure: 1.66,
     reward: 1.12,
-    rowWindow: 1.25,
+    rowWindow: 1.2,
     hazardWeights: [0.28, 0.52, 0.2, 0]
   },
   {
     id: 'hard',
     name: '困难',
     description: '浪面拥挤，奶鲨贴着浪尾追。留给失误的空间已经很少。',
-    speed: 1.68,
-    spacing: 0.48,
-    rampGain: 0.48,
-    monsterPressure: 2.2,
+    speed: 1.75,
+    spacing: 0.46,
+    rampGain: 0.62,
+    monsterPressure: 2.29,
     reward: 1.28,
-    rowWindow: 1.1,
+    rowWindow: 1.06,
     hazardWeights: [0, 0.2, 0.5, 0.3]
   },
   {
     id: 'hell',
     name: '地狱',
     description: '高速起浪，障碍成排压来。只留给熟练浪友一条窄路。',
-    speed: 2.3,
-    spacing: 0.36,
-    rampGain: 0.64,
-    monsterPressure: 2.95,
+    speed: 2.39,
+    spacing: 0.35,
+    rampGain: 0.83,
+    monsterPressure: 3.07,
     reward: 1.48,
     rowWindow: 1.05,
     hazardWeights: [0, 0.1, 0.48, 0.42]

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AudioEngine, type HomeMusicStatus } from './audio'
+import { AudioEngine } from './audio'
+import {
+  HomeMusicPlayer,
+  type HomeMusicStatus
+} from './homeMusic'
 import { GameScreen } from './components/GameScreen'
 import {
   DonationModal,
@@ -32,7 +36,6 @@ import {
   resetRecords,
   tryUnlockNext
 } from './storage'
-import { checkFeedbackBridge } from './feedback'
 import type {
   CharacterId,
   Difficulty,
@@ -160,7 +163,6 @@ export function App() {
   const [guideOpen, setGuideOpen] = useState(false)
   const [donationOpen, setDonationOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
-  const [feedbackAvailable, setFeedbackAvailable] = useState(false)
   const [musicStatus, setMusicStatus] = useState<HomeMusicStatus>('off')
   const [pendingStart, setPendingStart] = useState(false)
   const [runId, setRunId] = useState(0)
@@ -169,7 +171,7 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
   const audioRef = useRef<AudioEngine | null>(null)
-  const musicPausedByUserRef = useRef(false)
+  const homeMusicRef = useRef<HomeMusicPlayer | null>(null)
   const saveRef = useRef(save)
   saveRef.current = save
 
@@ -177,6 +179,17 @@ export function App() {
     audioRef.current = new AudioEngine(save.settings)
   }
   const audio = audioRef.current
+  if (!homeMusicRef.current) {
+    homeMusicRef.current = new HomeMusicPlayer(
+      `${import.meta.env.BASE_URL}audio/ocean-theme.mp3`.replace(
+        /([^:]\/)\/+/g,
+        '$1'
+      ),
+      save.settings.musicVolume,
+      setMusicStatus
+    )
+  }
+  const homeMusic = homeMusicRef.current
   const selectedMode = getMode(mode)
   const selectedDifficulty = getDifficulty(difficulty)
   const selectedCharacter = getCharacter(save.character)
@@ -189,6 +202,8 @@ export function App() {
   const musicLabel =
     musicStatus === 'playing'
       ? '音乐循环中'
+      : musicStatus === 'loading'
+        ? '音乐加载中'
       : musicStatus === 'blocked'
         ? '开启音乐'
         : '播放音乐'
@@ -202,7 +217,8 @@ export function App() {
   useEffect(() => {
     persistSave(save)
     audio.updateSettings(save.settings)
-  }, [audio, save])
+    homeMusic.setVolume(save.settings.musicVolume)
+  }, [audio, homeMusic, save])
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -218,18 +234,16 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    audio.setHomeMusicStatusListener(setMusicStatus)
-    void audio.startHomeMusic()
-  }, [audio])
+    homeMusic.setStatusListener(setMusicStatus)
+    void homeMusic.startHome()
+  }, [homeMusic])
 
   useEffect(() => {
-    const retryMusic = () => {
-      if (
-        !musicPausedByUserRef.current &&
-        screen === 'home' &&
-        audio.getHomeMusicStatus() !== 'playing'
-      ) {
-        void audio.startHomeMusic()
+    const retryMusic = (event: Event) => {
+      const target = event.target
+      if (target instanceof Element && target.closest('.music-tool')) return
+      if (screen === 'home' && homeMusic.getStatus() !== 'playing') {
+        void homeMusic.startHome()
       }
     }
     window.addEventListener('pointerdown', retryMusic)
@@ -238,43 +252,34 @@ export function App() {
       window.removeEventListener('pointerdown', retryMusic)
       window.removeEventListener('keydown', retryMusic)
     }
-  }, [audio, screen])
+  }, [homeMusic, screen])
 
   useEffect(() => {
     if (screen === 'game') {
+      homeMusic.enterGame()
       void audio.startGameMusic()
-    } else if (!musicPausedByUserRef.current) {
-      void audio.startHomeMusic()
+    } else {
+      audio.stopMusic()
+      void homeMusic.startHome()
     }
-  }, [audio, screen])
+  }, [audio, homeMusic, screen])
 
   useEffect(() => {
-    let disposed = false
-    const probe = async () => {
-      const available = await checkFeedbackBridge()
-      if (!disposed) setFeedbackAvailable(available)
+    const updatePageAudio = () => {
+      audio.setPageMuted(document.hidden)
+      homeMusic.setPageHidden(document.hidden)
     }
-    const probeOnFocus = () => void probe()
-    void probe()
-    window.addEventListener('focus', probeOnFocus)
-    return () => {
-      disposed = true
-      window.removeEventListener('focus', probeOnFocus)
-    }
-  }, [])
-
-  useEffect(() => {
-    const updatePageAudio = () => audio.setPageMuted(document.hidden)
     document.addEventListener('visibilitychange', updatePageAudio)
     return () => document.removeEventListener('visibilitychange', updatePageAudio)
-  }, [audio])
+  }, [audio, homeMusic])
 
   useEffect(() => {
     return () => {
       if (toastTimer.current) window.clearTimeout(toastTimer.current)
       audio.dispose()
+      homeMusic.dispose()
     }
-  }, [audio])
+  }, [audio, homeMusic])
 
   const startRun = useCallback(() => {
     if (!save.tutorialSeen || (save.guideVersion ?? 0) < CURRENT_GUIDE_VERSION) {
@@ -371,16 +376,11 @@ export function App() {
   const changeSettings = (settings: GameSettings) => {
     setSave((current) => ({ ...current, settings }))
     audio.updateSettings(settings)
+    homeMusic.setVolume(settings.musicVolume)
   }
 
   const toggleMusic = () => {
-    if (musicStatus === 'playing') {
-      musicPausedByUserRef.current = true
-      audio.pauseHomeMusic()
-      return
-    }
-    musicPausedByUserRef.current = false
-    void audio.startHomeMusic()
+    homeMusic.toggle()
   }
 
   const handleResetRecords = () => {
@@ -478,17 +478,15 @@ export function App() {
             <MusicIcon />
             <span className="action-label">{musicLabel}</span>
           </button>
-          {feedbackAvailable && (
-            <button
-              className="header-tool"
-              onClick={() => setFeedbackOpen(true)}
-              aria-label="反馈信箱"
-              title="反馈信箱"
-            >
-              <MailIcon />
-              <span className="action-label">反馈</span>
-            </button>
-          )}
+          <button
+            className="header-tool"
+            onClick={() => setFeedbackOpen(true)}
+            aria-label="反馈信箱"
+            title="反馈信箱"
+          >
+            <MailIcon />
+            <span className="action-label">反馈</span>
+          </button>
           <button
             className="header-tool tip-tool"
             onClick={() => {
@@ -745,7 +743,7 @@ export function App() {
         <div>
           {installPrompt && <button onClick={installPwa}>安装到设备</button>}
           <button onClick={() => setGuideOpen(true)}>玩法说明</button>
-          <span>v1.5</span>
+          <span>v1.6</span>
         </div>
       </footer>
 
@@ -772,7 +770,7 @@ export function App() {
       {donationOpen && (
         <DonationModal onClose={() => setDonationOpen(false)} />
       )}
-      {feedbackOpen && feedbackAvailable && (
+      {feedbackOpen && (
         <FeedbackModal onClose={() => setFeedbackOpen(false)} />
       )}
       <ModeGuide open={guideOpen} onClose={() => setGuideOpen(false)} />

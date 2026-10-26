@@ -1,39 +1,23 @@
-const BRIDGE_URL = (
-  import.meta.env.VITE_FEEDBACK_BRIDGE_URL ?? 'http://127.0.0.1:4317'
-).replace(/\/$/, '')
+const ISSUE_BASE_URL =
+  'https://github.com/PostStarDreamer/naisurf/issues/new'
 
-async function bridgeRequest(path: string, init?: RequestInit): Promise<Response> {
-  const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), 1200)
-  try {
-    return await fetch(`${BRIDGE_URL}${path}`, {
-      ...init,
-      signal: controller.signal,
-      cache: 'no-store'
-    })
-  } finally {
-    window.clearTimeout(timeout)
+export function buildFeedbackIssueUrl(content: string): string {
+  const normalized = content.replace(/\r\n?/g, '\n').trim()
+  if (normalized.length < 2 || normalized.length > 500) {
+    throw new Error('反馈内容需为 2–500 字')
   }
-}
-
-export async function checkFeedbackBridge(): Promise<boolean> {
-  if (!navigator.onLine) return false
-  try {
-    const response = await bridgeRequest('/health')
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
-export async function submitFeedback(content: string): Promise<void> {
-  const response = await bridgeRequest('/feedback', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content })
+  const summary = normalized.split('\n')[0].slice(0, 36)
+  const body = `${normalized}\n\n---\n来自 naisurf 玩家反馈\n页面版本：1.6`
+  const params = new URLSearchParams({
+    labels: 'feedback',
+    title: `[奶浪反馈] ${summary}`,
+    body
   })
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}))
-    throw new Error(body.message ?? '反馈保存失败')
-  }
+  return `${ISSUE_BASE_URL}?${params.toString()}`
+}
+
+export function openFeedbackIssue(content: string): string {
+  const url = buildFeedbackIssueUrl(content)
+  window.open(url, '_blank', 'noopener,noreferrer')
+  return url
 }

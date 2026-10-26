@@ -2184,17 +2184,39 @@ svg {
 }
 
 .hearts {
-  letter-spacing: 2px;
+  gap: 2px;
 }
 
 .heart {
-  color: rgba(80, 73, 64, 0.24);
-  font-size: 17px;
+  display: inline-grid;
+  place-items: center;
+  width: 1em;
+  height: 1em;
+  color: rgba(74, 57, 43, 0.56);
+  font-size: 18px;
+}
+
+.heart svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
+.heart svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linejoin: round;
 }
 
 .heart.full {
   color: var(--coral);
-  text-shadow: 1px 1px 0 var(--brown);
+}
+
+.heart.full svg path {
+  fill: currentColor;
+  stroke: var(--brown);
+  stroke-width: 1.4;
 }
 
 .milk-chip .pixel-font {
@@ -2951,7 +2973,7 @@ svg {
   }
 
   .hearts .heart {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .hearts.heart-loss {

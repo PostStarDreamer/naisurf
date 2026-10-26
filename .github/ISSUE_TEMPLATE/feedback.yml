@@ -1,0 +1,18 @@
+name: 奶浪反馈
+description: 公开提交对 naisurf 的体验反馈
+title: "[奶浪反馈] "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢体验 naisurf。此 Issue 会公开展示，请不要填写密码、令牌或其他敏感信息。
+  - type: textarea
+    id: feedback
+    attributes:
+      label: 反馈内容
+      description: 请描述哪里好玩、哪里卡手，或最希望修改的内容。
+      placeholder: 写下 2–500 字的反馈
+    validations:
+      required: true

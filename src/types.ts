@@ -172,7 +172,7 @@ export interface RunResult {
   captures: number
   elapsed: number
   streak: number
-  reason: 'finished' | 'wrecked' | 'caught'
+  reason: 'finished' | 'wrecked' | 'caught' | 'gateMissed'
   newRecord: boolean
   earnedMilk: number
   instantMilk: number

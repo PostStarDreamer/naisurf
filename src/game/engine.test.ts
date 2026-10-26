@@ -259,7 +259,7 @@ describe('naisurf game rules', () => {
       updateGame(game, idleInput, 1 / 60)
       expect(game.paceMultiplier).toBeGreaterThan(atTwoMinutes)
       expect(game.paceMultiplier).toBeCloseTo(
-        1 + gains[difficulty] * (600 / 120) ** 0.75,
+        1 + gains[difficulty] * (game.elapsed / 120) ** 0.75,
         4
       )
     }
@@ -498,6 +498,32 @@ describe('monster and net state machine', () => {
   })
 })
 
+describe('zigzag chain mode', () => {
+  it('counts successful gates and keeps the best streak', () => {
+    const game = quietRun({ mode: 'zigzag' })
+    addObject(game, 'gate', game.playerX, 0.5)
+    updateGame(game, idleInput, 0.05)
+    expect(game.streak).toBe(1)
+    expect(game.bestStreak).toBe(1)
+    expect(game.ended).toBe(false)
+  })
+
+  it('ends immediately when a gate is missed without losing a life', () => {
+    const game = quietRun({ mode: 'zigzag' })
+    game.streak = 4
+    game.bestStreak = 4
+    addObject(game, 'gate', 0.8, 0.5)
+    addObject(game, 'rock', game.playerX)
+    updateGame(game, idleInput, 0.05)
+    expect(game.streak).toBe(0)
+    expect(game.bestStreak).toBe(4)
+    expect(game.lives).toBe(5)
+    expect(game.ended).toBe(true)
+    expect(game.result?.reason).toBe('gateMissed')
+    expect(game.result?.recordValue).toBe(4)
+  })
+})
+
 describe('safe obstacle generation', () => {
   it('keeps a 0.44-wide corridor reachable even with the worst base handling', () => {
     for (const profile of DIFFICULTIES) {
@@ -616,6 +642,26 @@ describe('safe obstacle generation', () => {
     expect(first.objects.map((item) => [item.kind, item.x, item.z])).toEqual(
       second.objects.map((item) => [item.kind, item.x, item.z])
     )
+  })
+})
+
+describe('v1.6 difficulty tuning', () => {
+  it('increases every difficulty tier while retaining touch spacing', () => {
+    expect(DIFFICULTIES.map(({ speed }) => speed)).toEqual([
+      1.08, 1.35, 1.75, 2.39
+    ])
+    expect(DIFFICULTIES.map(({ rampGain }) => rampGain)).toEqual([
+      0.21, 0.42, 0.62, 0.83
+    ])
+    expect(DIFFICULTIES.map(({ monsterPressure }) => monsterPressure)).toEqual([
+      1.17, 1.66, 2.29, 3.07
+    ])
+    expect(DIFFICULTIES.map(({ spacing }) => spacing)).toEqual([
+      0.9, 0.66, 0.46, 0.35
+    ])
+    expect(DIFFICULTIES.map(({ rowWindow }) => rowWindow)).toEqual([
+      1.36, 1.2, 1.06, 1.05
+    ])
   })
 })
 
