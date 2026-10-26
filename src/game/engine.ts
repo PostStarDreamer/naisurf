@@ -6,6 +6,7 @@ import type {
   GameState,
   MotionState,
   RunResult,
+  WalletTransaction,
   WorldObject
 } from '../types'
 
@@ -15,12 +16,12 @@ export const PLAYER_ZONE = 2.2
 export const INITIAL_LIVES = 5
 export const PLAYER_COLLIDER_HALF_WIDTH = 0.085
 export const MONSTER_HIT_HALF_WIDTH = 0.12
-export const MONSTER_WAKE_DISTANCE = 0.5
+export const MONSTER_WAKE_DISTANCE = 0.62
 export const NET_CAPTURE_DISTANCE = 0.52
 export const NET_CAPTURE_GAP = 24
 export const SAFE_CORRIDOR_WIDTH = 0.44
 export const SAFE_CORRIDOR_HALF = SAFE_CORRIDOR_WIDTH / 2
-export const MIN_HAZARD_REACTION_SECONDS = 1.6
+export const MIN_HAZARD_REACTION_SECONDS = 1.35
 export const MAX_REVIVES = 3
 export const REVIVE_BASE_COST = 100
 
@@ -60,15 +61,18 @@ function createRunResult(
 
   const difficulty = getDifficulty(config.difficulty)
   const captureMilk = state.capturedMonsters * 10
-  const earnedMilk = Math.max(
-    1,
-    Math.round(
-      (state.earnedMilk - captureMilk + Math.floor(state.distance / 22)) *
-        difficulty.reward
-    ) + captureMilk
-  )
+  const settlementMilk =
+    state.distance > 0
+      ? Math.max(
+          1,
+          Math.round(Math.floor(state.distance / 22) * difficulty.reward)
+        )
+      : 0
+  const instantMilk = state.instantMilkEarned
+  const earnedMilk = instantMilk + settlementMilk
 
   return {
+    runId: config.runId,
     mode: config.mode,
     difficulty: config.difficulty,
     character: config.character,
@@ -81,6 +85,8 @@ function createRunResult(
     reason,
     newRecord: false,
     earnedMilk,
+    instantMilk,
+    settlementMilk,
     captureMilk,
     recordValue,
     recordLabel,
@@ -143,10 +149,10 @@ export function createGame(config: GameConfig): GameState {
 
   if (config.mode === 'endless') {
     monster.nextSpawnDistance =
-      randomBetween(rng, 240, 320) / difficulty.monsterPressure
+      randomBetween(rng, 240, 320) / (difficulty.monsterPressure * 1.15)
   } else if (config.mode === 'extreme') {
     monster.nextSpawnTime =
-      randomBetween(rng, 16, 24) / difficulty.monsterPressure
+      randomBetween(rng, 16, 24) / (difficulty.monsterPressure * 1.25)
   }
 
   return {
@@ -171,7 +177,7 @@ export function createGame(config: GameConfig): GameState {
     motionState: 'cruise',
     score: 0,
     coins: 0,
-    earnedMilk: 0,
+    instantMilkEarned: 0,
     streak: 0,
     bestStreak: 0,
     objects: [],
@@ -190,11 +196,13 @@ export function createGame(config: GameConfig): GameState {
     events: [],
     lastDamage: null,
     damageNoticeTimer: 0,
+    damageRevision: 0,
     nextHazardRowAt: 2.1,
     safeCenter: 0,
     shake: 0,
     flash: 0,
-    rng
+    rng,
+    walletTransactions: []
   }
 }
 
@@ -219,17 +227,27 @@ function createObject(
   }
 }
 
+function queueWalletTransaction(
+  state: GameState,
+  transaction: WalletTransaction
+): void {
+  if (state.walletTransactions.some((item) => item.id === transaction.id)) return
+  state.walletTransactions.push(transaction)
+  state.events.push('wallet')
+}
+
 function scheduleNextMonster(state: GameState, resetFromDistance = true): void {
   const mode = state.config.mode
   const pressure = getDifficulty(state.config.difficulty).monsterPressure
+  const cadence = 1.15 * (mode === 'extreme' ? 1.1 : 1)
   if (mode === 'endless') {
     state.monster.nextSpawnDistance =
       (resetFromDistance ? state.distance : 0) +
-      randomBetween(state.rng, 380, 480) / pressure
+      randomBetween(state.rng, 380, 480) / (pressure * cadence)
     state.monster.nextSpawnTime = Number.POSITIVE_INFINITY
   } else if (mode === 'extreme') {
     state.monster.nextSpawnTime =
-      state.elapsed + randomBetween(state.rng, 24, 34) / pressure
+      state.elapsed + randomBetween(state.rng, 24, 34) / (pressure * cadence)
     state.monster.nextSpawnDistance = Number.POSITIVE_INFINITY
   } else {
     state.monster.nextSpawnDistance = Number.POSITIVE_INFINITY
@@ -253,6 +271,7 @@ function startMonster(state: GameState): void {
 
 function triggerChase(state: GameState): void {
   const pressure = getDifficulty(state.config.difficulty).monsterPressure
+  const cadence = 1.15 * (state.config.mode === 'extreme' ? 1.1 : 1)
   state.monster.state = 'chasing'
   state.monster.gap = 38
   state.monster.age = 0
@@ -260,11 +279,11 @@ function triggerChase(state: GameState): void {
     ...emptyNet(),
     nextSpawnDistance:
       state.config.mode === 'endless'
-        ? state.distance + randomBetween(state.rng, 100, 160) / pressure
+        ? state.distance + randomBetween(state.rng, 100, 160) / (pressure * cadence)
         : Number.POSITIVE_INFINITY,
     nextSpawnTime:
       state.config.mode === 'extreme'
-        ? state.elapsed + randomBetween(state.rng, 8, 12) / pressure
+        ? state.elapsed + randomBetween(state.rng, 8, 12) / (pressure * cadence)
         : Number.POSITIVE_INFINITY
   }
   state.flash = 0.45
@@ -282,14 +301,15 @@ function missMonster(state: GameState): void {
 
 function scheduleNetAfterMiss(state: GameState, resetDistance: boolean): void {
   const pressure = getDifficulty(state.config.difficulty).monsterPressure
+  const cadence = 1.15 * (state.config.mode === 'extreme' ? 1.1 : 1)
   if (state.config.mode === 'endless') {
     state.net.nextSpawnDistance =
       (resetDistance ? state.distance : 0) +
-      randomBetween(state.rng, 300, 420) / pressure
+      randomBetween(state.rng, 300, 420) / (pressure * cadence)
     state.net.nextSpawnTime = Number.POSITIVE_INFINITY
   } else if (state.config.mode === 'extreme') {
     state.net.nextSpawnTime =
-      state.elapsed + randomBetween(state.rng, 18, 26) / pressure
+      state.elapsed + randomBetween(state.rng, 18, 26) / (pressure * cadence)
     state.net.nextSpawnDistance = Number.POSITIVE_INFINITY
   }
 }
@@ -305,13 +325,48 @@ function captureMonster(state: GameState): void {
   state.net.state = 'snapped'
   state.net.timer = 0.5
   state.capturedMonsters += 1
-  state.earnedMilk += 10
+  state.instantMilkEarned += 10
+  queueWalletTransaction(state, {
+    id: `capture:${state.config.runId}:${state.capturedMonsters}`,
+    kind: 'capture',
+    amount: 10
+  })
   state.flash = 0.8
   state.events.push('capture')
   state.events.push('netSnap')
   state.shake = state.secretEventActive ? 0 : 0.35
   scheduleNextMonster(state)
   scheduleNetAfterMiss(state, true)
+}
+
+function applyDamage(
+  state: GameState,
+  kind: Exclude<GameState['lastDamage'], null>,
+  amount: number
+): 'ignored' | 'shielded' | 'damaged' {
+  if (state.phase !== 'playing' || state.downed || state.ended) return 'ignored'
+  if (state.reviveInvulnerability > 0) return 'ignored'
+  if (kind === 'obstacle' && (state.invulnerability > 0 || state.secretEventActive)) {
+    return 'ignored'
+  }
+
+  state.lastDamage = kind
+  state.damageRevision += 1
+
+  if (kind === 'obstacle' && state.shield > 0) {
+    state.shield = 0
+    state.invulnerability = 1.2
+    state.shake = 0.25
+    state.damageNoticeTimer = 0.9
+    state.events.push('hit')
+    return 'shielded'
+  }
+
+  state.lives = Math.max(0, state.lives - amount)
+  state.damageNoticeTimer = kind === 'monster' ? 1.5 : 1.1
+  state.events.push(kind === 'monster' ? 'monsterHit' : 'hit')
+  if (state.lives <= 0) enterDowned(state)
+  return 'damaged'
 }
 
 function contactMonster(state: GameState): void {
@@ -321,19 +376,15 @@ function contactMonster(state: GameState): void {
     state.monster.gap = Math.max(12, state.monster.gap)
     return
   }
-  state.lives = Math.max(0, state.lives - 2)
-  state.lastDamage = 'monster'
-  state.damageNoticeTimer = 1.5
   state.monster.state = 'recoiling'
   state.monster.age = 0
   state.monster.animationFrame = 0
   state.monster.gap = 90
   state.shake = 0.9
   state.flash = 0.8
-  state.events.push('monsterHit')
   state.events.push('monsterStop')
+  applyDamage(state, 'monster', 2)
   scheduleNextMonster(state)
-  if (state.lives <= 0) enterDowned(state)
 }
 
 interface RowEntityPlan {
@@ -372,59 +423,94 @@ export function planHazardRow(
   const safeHalfWidth = SAFE_CORRIDOR_HALF + Math.max(0, spacing - 1) * 0.04
   const hazards: RowEntityPlan[] = []
   const items: RowEntityPlan[] = []
+  const hazardRoll = rng()
+  const tripleChance = Math.min(0.44, Math.max(0, (1 - spacing) * 0.72))
+  const doubleChance = Math.min(0.58, 0.48 / Math.max(0.58, spacing))
+  const hazardCount =
+    hazardRoll < tripleChance ? 3 : hazardRoll < tripleChance + doubleChance ? 2 : 1
+  const leftEdge = -0.94
+  const rightEdge = 0.94
+  const firstSide = rng() > 0.5 ? 1 : -1
 
-  if (rng() > 0.16) {
-    const sides = rng() > 0.5 ? (['left', 'right'] as const) : (['right', 'left'] as const)
-    const doubleHazardChance = Math.min(0.68, 0.5 / Math.max(0.7, spacing))
-    const hazardCount = rng() < doubleHazardChance ? 2 : 1
-    for (const side of sides.slice(0, hazardCount)) {
+  for (let index = 0; index < hazardCount; index += 1) {
+    let placed = false
+    for (let attempt = 0; attempt < 24 && !placed; attempt += 1) {
+      const side = (index + (rng() > 0.76 ? 1 : 0)) % 2 === 0 ? firstSide : -firstSide
       const kind = pickObstacleKind(rng)
       const dimensions = obstacleDimensions(kind)
       const minX =
-        side === 'left'
-          ? -0.94 + dimensions.width / 2
+        side < 0
+          ? leftEdge + dimensions.width / 2
           : safeCenter + safeHalfWidth + dimensions.width / 2 + 0.03
       const maxX =
-        side === 'left'
+        side < 0
           ? safeCenter - safeHalfWidth - dimensions.width / 2 - 0.03
-          : 0.94 - dimensions.width / 2
-      if (minX <= maxX) {
-        hazards.push({
-          kind,
-          x: randomBetween(rng, minX, maxX),
-          ...dimensions
-        })
-      }
+          : rightEdge - dimensions.width / 2
+      if (minX > maxX) continue
+
+      const x = randomBetween(rng, minX, maxX)
+      const overlaps = hazards.some(
+        (hazard) =>
+          Math.abs(hazard.x - x) <
+          hazard.width / 2 + dimensions.width / 2 + 0.035
+      )
+      if (overlaps) continue
+      hazards.push({ kind, x, ...dimensions })
+      placed = true
     }
   }
 
-  const itemRoll = rng()
-  const itemKind: WorldObject['kind'] =
-    itemRoll < 0.08
-      ? 'heart'
-      : itemRoll < 0.18
-        ? 'boost'
-        : itemRoll < 0.23
-          ? 'shield'
-          : itemRoll < 0.29
-            ? 'slime'
-            : 'coin'
   const itemWidth = 0.15
   const itemLimit = Math.max(0, safeHalfWidth - itemWidth / 2 - PLAYER_COLLIDER_HALF_WIDTH)
-  items.push({
-    kind: itemKind,
-    x: safeCenter + randomBetween(rng, -itemLimit, itemLimit),
-    width: itemWidth,
-    height: itemKind === 'slime' ? 0.24 : 0.2
-  })
+  const itemCount = 1 + (rng() < 0.52 ? 1 : 0)
 
-  if (rng() < 0.45) {
-    items.push({
-      kind: 'coin',
-      x: safeCenter + randomBetween(rng, -itemLimit, itemLimit),
-      width: itemWidth,
-      height: 0.2
-    })
+  for (let index = 0; index < itemCount; index += 1) {
+    const itemRoll = rng()
+    const itemKind: WorldObject['kind'] =
+      itemRoll < 0.08
+        ? 'heart'
+        : itemRoll < 0.18
+          ? 'boost'
+          : itemRoll < 0.23
+            ? 'shield'
+            : itemRoll < 0.31
+              ? 'slime'
+              : 'coin'
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const useSafeLane = rng() < 0.65 || attempt > 8
+      let minX = safeCenter - itemLimit
+      let maxX = safeCenter + itemLimit
+      if (!useSafeLane) {
+        const side = rng() > 0.5 ? 1 : -1
+        minX =
+          side < 0
+            ? leftEdge + itemWidth / 2
+            : safeCenter + safeHalfWidth + itemWidth / 2 + 0.03
+        maxX =
+          side < 0
+            ? safeCenter - safeHalfWidth - itemWidth / 2 - 0.03
+            : rightEdge - itemWidth / 2
+      }
+      if (minX > maxX) continue
+      const x = randomBetween(rng, minX, maxX)
+      const overlapsHazard = hazards.some(
+        (hazard) =>
+          Math.abs(hazard.x - x) <
+          hazard.width / 2 + itemWidth / 2 + 0.035
+      )
+      const overlapsItem = items.some(
+        (item) => Math.abs(item.x - x) < itemWidth + 0.035
+      )
+      if (overlapsHazard || overlapsItem) continue
+      items.push({
+        kind: itemKind,
+        x,
+        width: itemWidth,
+        height: itemKind === 'slime' ? 0.24 : 0.2
+      })
+      break
+    }
   }
 
   return {
@@ -459,10 +545,10 @@ function spawnHazardRow(state: GameState): void {
   }
 
   const interval = Math.max(
-    MIN_HAZARD_REACTION_SECONDS,
-    2.1 *
+    Math.max(MIN_HAZARD_REACTION_SECONDS, difficulty.rowWindow),
+    1.9 *
       difficulty.spacing *
-      (1 - Math.min(0.12, (state.elapsed / 120) * 0.12))
+      (1 - Math.min(0.18, (state.elapsed / 120) * 0.18))
   )
   state.nextHazardRowAt = state.elapsed + interval
 }
@@ -517,7 +603,12 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
   if (object.kind === 'coin') {
     object.active = false
     state.coins += 1
-    state.earnedMilk += 1
+    state.instantMilkEarned += 1
+    queueWalletTransaction(state, {
+      id: `pickup:${state.config.runId}:${object.id}`,
+      kind: 'pickup',
+      amount: 1
+    })
     state.events.push('collect')
     if (state.config.mode === 'zigzag') state.streak += 0
     return
@@ -526,9 +617,15 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
   if (object.kind === 'heart') {
     object.active = false
     if (state.lives >= state.maxLives) {
-      state.earnedMilk += 3
+      state.instantMilkEarned += 3
+      queueWalletTransaction(state, {
+        id: `heart:${state.config.runId}:${object.id}`,
+        kind: 'heartBonus',
+        amount: 3
+      })
     } else {
       state.lives = Math.min(state.maxLives, state.lives + 1)
+      state.damageRevision += 1
     }
     state.events.push('heart')
     return
@@ -546,6 +643,7 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
     object.active = false
     const gain = state.config.character === 'dog' ? 1.3 : 1
     state.shield = Math.max(state.shield, 8 * gain)
+    state.damageRevision += 1
     state.events.push('heart')
     return
   }
@@ -557,28 +655,11 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
     return
   }
 
-  if (state.invulnerability > 0 || state.secretEventActive) return
-
-  if (state.reviveInvulnerability > 0) return
-
-  if (state.shield > 0) {
-    state.shield = 0
-    state.invulnerability = 1.2
-    state.shake = 0.25
-    state.events.push('hit')
-    state.damageNoticeTimer = 0.9
-    return
-  }
-
-  state.lives -= 1
+  if (applyDamage(state, 'obstacle', 1) !== 'damaged') return
   state.invulnerability = state.config.character === 'egg' ? 1.4 : 1
   state.monster.gap = Math.max(0, state.monster.gap - 7)
   state.shake = 0.55
   state.flash = 0.3
-  state.lastDamage = 'obstacle'
-  state.damageNoticeTimer = 1.1
-  state.events.push('hit')
-  if (state.lives <= 0) enterDowned(state)
 }
 
 function updateMonster(state: GameState, dt: number, forward: number): void {
@@ -622,10 +703,13 @@ function updateMonster(state: GameState, dt: number, forward: number): void {
   if (monster.state !== 'chasing') return
 
   monster.age += dt
-  monster.animationFrame = Math.floor(monster.age * 8) % 4
+  monster.animationFrame = Math.floor(monster.age * 8) % 2
   const boostPush = state.boosting ? 19 : 0
   const acceleratePush = state.motionState === 'accelerating' ? 1.5 : 0
-  const pressure = difficulty.monsterPressure * (1.05 + monster.age * 0.005)
+  const pressure =
+    difficulty.monsterPressure *
+    (1.05 + monster.age * 0.005) *
+    (state.debuffTimer > 0 ? 1.25 : 1)
   monster.gap += (boostPush + acceleratePush - pressure) * dt
   if (monster.gap > 78) {
     missMonster(state)
@@ -833,10 +917,15 @@ export function updateGame(state: GameState, input: GameInput, dt: number): void
     object.z -= forward * dt
     if (previousZ > PLAYER_ZONE && object.z <= PLAYER_ZONE) {
       handleObjectCrossing(state, object, input)
+      if (state.downed || state.ended) break
     }
     if (object.z < -10) object.active = false
   }
   state.objects = state.objects.filter((object) => object.active)
+  if (state.downed || state.ended) {
+    state.score = currentRecordScore(state)
+    return
+  }
 
   const canSpawnMonster =
     (state.config.mode === 'endless' &&
@@ -894,6 +983,7 @@ export function reviveGame(state: GameState): boolean {
   state.invulnerability = 1
   state.reviveInvulnerability = 1
   state.damageNoticeTimer = 0
+  state.damageRevision += 1
   state.flash = 0.45
   state.events.push('revive')
   return true
@@ -908,8 +998,18 @@ export function createRunGame(config: GameConfig): GameState {
   return createGame(config)
 }
 
-export function snapshotGame(state: GameState): GameSnapshot {
+export function snapshotGame(state: GameState, walletCoins = 0): GameSnapshot {
   const reviveCost = (state.revivesUsed + 1) * REVIVE_BASE_COST
+  const reviveUnavailableReason: GameSnapshot['reviveUnavailableReason'] =
+    !state.downed
+      ? 'not-downed'
+      : state.config.mode === 'extreme'
+        ? 'extreme'
+        : state.revivesUsed >= MAX_REVIVES
+          ? 'limit'
+          : walletCoins < reviveCost
+            ? 'insufficient'
+            : null
   return {
     mode: state.config.mode,
     phase: state.phase,
@@ -938,15 +1038,15 @@ export function snapshotGame(state: GameState): GameSnapshot {
     bestStreak: state.bestStreak,
     paused: state.paused,
     capturedMonsters: state.capturedMonsters,
+    walletCoins,
+    instantMilk: state.instantMilkEarned,
+    damageRevision: state.damageRevision,
     invulnerable: state.invulnerability > 0,
     reviveInvulnerable: state.reviveInvulnerability > 0,
     revivesUsed: state.revivesUsed,
     reviveCost,
-    canRevive:
-      state.downed &&
-      !state.ended &&
-      state.config.mode !== 'extreme' &&
-      state.revivesUsed < MAX_REVIVES,
+    canRevive: reviveUnavailableReason === null,
+    reviveUnavailableReason,
     secretEventActive: state.secretEventActive,
     debuffRemaining: state.debuffTimer,
     paceMultiplier: state.paceMultiplier,

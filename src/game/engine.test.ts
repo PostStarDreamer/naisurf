@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDefaultSave, DIFFICULTIES, getDifficulty } from '../data'
 import {
+  createDefaultSave,
+  DIFFICULTIES,
+  getCharacter,
+  getDifficulty,
+  getUnlockProgress
+} from '../data'
+import {
+  applyWalletTransactions,
   applyRunResult,
-  creditCaptureReward,
   loadSave,
   tryUnlockNext
 } from '../storage'
@@ -38,7 +44,8 @@ const config: GameConfig = {
   mode: 'endless',
   difficulty: 'medium',
   character: 'egg',
-  seed: 42
+  seed: 42,
+  runId: 'test-run'
 }
 
 const idleInput: GameInput = {
@@ -90,6 +97,30 @@ describe('naisurf game rules', () => {
     }
   })
 
+  it('uses the same immediate health rules in every mode and difficulty', () => {
+    const modes: GameMode[] = ['endless', 'timeTrial', 'zigzag', 'extreme']
+    for (const mode of modes) {
+      for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
+        const obstacleHit = quietRun({ mode, difficulty })
+        addObject(obstacleHit, 'rock', 0)
+        updateGame(obstacleHit, idleInput, 0.05)
+        expect(obstacleHit.lives).toBe(4)
+        expect(obstacleHit.damageRevision).toBe(1)
+
+        const monsterHit = quietRun({ mode, difficulty })
+        monsterHit.monster = {
+          ...monsterHit.monster,
+          state: 'lurking',
+          x: 0,
+          z: PLAYER_ZONE + 0.1
+        }
+        updateGame(monsterHit, idleInput, 0.05)
+        expect(monsterHit.lives).toBe(3)
+        expect(monsterHit.damageRevision).toBe(1)
+      }
+    }
+  })
+
   it('never damages an idle player without a collision', () => {
     const game = quietRun()
     for (let index = 0; index < 600; index++) updateGame(game, idleInput, 1 / 60)
@@ -121,7 +152,10 @@ describe('naisurf game rules', () => {
     addObject(full, 'heart', 0)
     updateGame(full, idleInput, 0.05)
     expect(full.lives).toBe(5)
-    expect(full.earnedMilk).toBe(3)
+    expect(full.instantMilkEarned).toBe(3)
+    expect(full.walletTransactions).toEqual([
+      expect.objectContaining({ kind: 'heartBonus', amount: 3 })
+    ])
   })
 
   it('uses a shield for one obstacle but never for monster contact', () => {
@@ -144,6 +178,26 @@ describe('naisurf game rules', () => {
     expect(monster.lives).toBe(3)
     expect(monster.monster.state).toBe('recoiling')
     expect(monster.shield).toBeGreaterThan(7)
+  })
+
+  it('applies only one health change per collision window and exposes a revision', () => {
+    const game = quietRun()
+    addObject(game, 'rock', 0)
+    addObject(game, 'rock', 0)
+    updateGame(game, idleInput, 0.05)
+    expect(game.lives).toBe(4)
+    expect(game.damageRevision).toBe(1)
+  })
+
+  it('credits collected milk instantly through one wallet transaction', () => {
+    const game = quietRun()
+    addObject(game, 'coin', 0)
+    updateGame(game, idleInput, 0.05)
+    expect(game.coins).toBe(1)
+    expect(game.instantMilkEarned).toBe(1)
+    expect(game.walletTransactions).toEqual([
+      expect.objectContaining({ kind: 'pickup', amount: 1 })
+    ])
   })
 
   it('applies one non-stacking three-second slime debuff without damage', () => {
@@ -185,10 +239,10 @@ describe('naisurf game rules', () => {
 
   it('keeps raising speed without a hard cap', () => {
     const gains: Record<Difficulty, number> = {
-      easy: 0.1,
-      medium: 0.18,
-      hard: 0.26,
-      hell: 0.36
+      easy: 0.12,
+      medium: 0.22,
+      hard: 0.3,
+      hell: 0.4
     }
     for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
       const game = quietRun({ difficulty })
@@ -310,6 +364,16 @@ describe('naisurf game rules', () => {
     expect(game.monster.state).toBe('escaped')
   })
 
+  it('exposes revive availability from mode, attempts and current wallet balance', () => {
+    const game = quietRun()
+    game.downed = true
+    game.phase = 'downed'
+    expect(snapshotGame(game, 99).reviveUnavailableReason).toBe('insufficient')
+    expect(snapshotGame(game, 100).canRevive).toBe(true)
+    game.revivesUsed = MAX_REVIVES
+    expect(snapshotGame(game, 9999).reviveUnavailableReason).toBe('limit')
+  })
+
   it('ends an extreme run immediately without offering revival', () => {
     const game = quietRun({ mode: 'extreme' })
     game.lives = 1
@@ -338,7 +402,7 @@ describe('monster and net state machine', () => {
     expect(game.monster.state).toBe('recoiling')
   })
 
-  it('wakes within the 0.5 range but does not wake outside it', () => {
+  it('wakes within the 0.62 range but does not wake outside it', () => {
     const near = quietRun()
     near.monster = {
       ...near.monster,
@@ -372,7 +436,22 @@ describe('monster and net state machine', () => {
     expect(game.ended).toBe(false)
   })
 
-  it('cycles all four mouth animation frames while chasing', () => {
+  it('makes a slowed player easier to catch during a chase', () => {
+    const normal = quietRun()
+    const slowed = quietRun()
+    for (const game of [normal, slowed]) {
+      forceMonsterChase(game)
+      game.monster.gap = 30
+    }
+    slowed.debuffTimer = 3
+    for (let index = 0; index < 60; index++) {
+      updateGame(normal, idleInput, 1 / 60)
+      updateGame(slowed, idleInput, 1 / 60)
+    }
+    expect(slowed.monster.gap).toBeLessThan(normal.monster.gap)
+  })
+
+  it('cycles closed and open front frames while chasing', () => {
     const game = quietRun()
     forceMonsterChase(game)
     game.monster.gap = 50
@@ -381,7 +460,7 @@ describe('monster and net state machine', () => {
       updateGame(game, idleInput, 1 / 60)
       frames.add(game.monster.animationFrame)
     }
-    expect([...frames].sort()).toEqual([0, 1, 2, 3])
+    expect([...frames].sort()).toEqual([0, 1])
   })
 
   it('captures only the current chasing monster and awards ten milk coins once', () => {
@@ -391,7 +470,10 @@ describe('monster and net state machine', () => {
     updateGame(game, idleInput, 1 / 60)
     expect(game.monster.state).toBe('captured')
     expect(game.capturedMonsters).toBe(1)
-    expect(game.earnedMilk).toBe(10)
+    expect(game.instantMilkEarned).toBe(10)
+    expect(game.walletTransactions).toEqual([
+      expect.objectContaining({ kind: 'capture', amount: 10 })
+    ])
     expect(game.net.state).toBe('snapped')
 
     game.monster.nextSpawnDistance = 0
@@ -428,10 +510,30 @@ describe('safe obstacle generation', () => {
           const plan = planHazardRow(rng, previous, getDifficulty(profile.id).spacing)
           expect(plan.safeHalfWidth * 2).toBeGreaterThanOrEqual(SAFE_CORRIDOR_WIDTH)
           expect(Math.abs(plan.safeCenter - previous)).toBeLessThanOrEqual(0.700001)
+          expect(plan.hazards.length).toBeGreaterThanOrEqual(1)
+          expect(plan.hazards.length).toBeLessThanOrEqual(3)
+          expect(plan.items.length).toBeGreaterThanOrEqual(1)
+          expect(plan.items.length).toBeLessThanOrEqual(2)
           for (const hazard of plan.hazards) {
             const nearestEdge =
               Math.abs(hazard.x - plan.safeCenter) - hazard.width / 2
             expect(nearestEdge).toBeGreaterThanOrEqual(plan.safeHalfWidth)
+          }
+          for (let left = 0; left < plan.hazards.length; left += 1) {
+            for (let right = left + 1; right < plan.hazards.length; right += 1) {
+              const first = plan.hazards[left]
+              const second = plan.hazards[right]
+              expect(Math.abs(first.x - second.x)).toBeGreaterThanOrEqual(
+                first.width / 2 + second.width / 2 + 0.03
+              )
+            }
+          }
+          for (const item of plan.items) {
+            for (const hazard of plan.hazards) {
+              expect(Math.abs(item.x - hazard.x)).toBeGreaterThanOrEqual(
+                item.width / 2 + hazard.width / 2 + 0.03
+              )
+            }
           }
           previous = plan.safeCenter
         }
@@ -440,12 +542,14 @@ describe('safe obstacle generation', () => {
   })
 
   it('never schedules hazard rows closer than the minimum reaction window', () => {
-    const game = quietRun()
-    game.nextHazardRowAt = 0
-    updateGame(game, idleInput, 1 / 60)
-    expect(game.nextHazardRowAt - game.elapsed).toBeGreaterThanOrEqual(
-      MIN_HAZARD_REACTION_SECONDS
-    )
+    for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
+      const game = quietRun({ difficulty })
+      game.nextHazardRowAt = 0
+      updateGame(game, idleInput, 1 / 60)
+      expect(game.nextHazardRowAt - game.elapsed).toBeGreaterThanOrEqual(
+        Math.max(MIN_HAZARD_REACTION_SECONDS, getDifficulty(difficulty).rowWindow)
+      )
+    }
   })
 
   it('builds the same fixed time-trial route regardless of non-time-trial seed', () => {
@@ -483,32 +587,99 @@ describe('local progression and scoring', () => {
     expect(loaded.milkCoins).toBe(88)
     expect(loaded.unlocked).toEqual(['egg', 'mouse'])
     expect(loaded.guideVersion).toBe(0)
+    expect(loaded.recentTransactions).toEqual([])
     expect(loaded.records['collector:medium']).toBeUndefined()
     expect(loaded.records['endless:medium']).toBe(321)
   })
 
   it('unlocks characters in the required order and only with enough coins', () => {
-    let save = { ...createDefaultSave(), milkCoins: 800 }
+    let save = {
+      ...createDefaultSave(),
+      milkCoins: 10000,
+      totalRuns: 3,
+      totalCaptures: 0
+    }
     const mouse = tryUnlockNext(save)
     save = mouse.save
     expect(mouse.unlocked).toBe('mouse')
-    expect(save.milkCoins).toBe(740)
+    expect(save.milkCoins).toBe(9820)
 
+    expect(tryUnlockNext(save).reason).toBe('runs')
+    save = { ...save, totalRuns: 8, totalCaptures: 4 }
     const chicken = tryUnlockNext(save)
     save = chicken.save
     expect(chicken.unlocked).toBe('chicken')
 
+    save = { ...save, totalRuns: 15, totalCaptures: 8 }
     const dog = tryUnlockNext(save)
     save = dog.save
     expect(dog.unlocked).toBe('dog')
 
+    save = { ...save, totalRuns: 24, totalCaptures: 16 }
     const frog = tryUnlockNext(save)
     expect(frog.unlocked).toBe('frog')
+    expect(frog.save.milkCoins).toBe(7470)
+  })
+
+  it('requires both milestones and coins for locked characters', () => {
+    const save = {
+      ...createDefaultSave(),
+      milkCoins: 1000,
+      totalRuns: 8,
+      totalCaptures: 3
+    }
+    const mouse = tryUnlockNext({
+      ...save,
+      totalRuns: 2
+    })
+    expect(mouse.reason).toBe('runs')
+
+    const chicken = tryUnlockNext({
+      ...save,
+      unlocked: ['egg', 'mouse'],
+      character: 'mouse'
+    })
+    expect(chicken.reason).toBe('captures')
+
+    const noCoins = tryUnlockNext({
+      ...save,
+      milkCoins: 0,
+      totalRuns: 3
+    })
+    expect(noCoins.reason).toBe('coins')
+    expect(getUnlockProgress(save, getCharacter('chicken')).canUnlock).toBe(false)
+  })
+
+  it('applies wallet transactions once and rejects unaffordable deductions', () => {
+    const initial = { ...createDefaultSave(), milkCoins: 100 }
+    const first = applyWalletTransactions(initial, [
+      { id: 'pickup-1', kind: 'pickup', amount: 1 },
+      { id: 'heart-1', kind: 'heartBonus', amount: 3 },
+      { id: 'capture-1', kind: 'capture', amount: 10 },
+      { id: 'revive-1', kind: 'revive', amount: -100 }
+    ])
+    expect(first.balance).toBe(14)
+    expect(first.save.totalCaptures).toBe(1)
+    expect(first.appliedIds).toHaveLength(4)
+
+    const duplicate = applyWalletTransactions(first.save, [
+      { id: 'capture-1', kind: 'capture', amount: 10 }
+    ])
+    expect(duplicate.balance).toBe(14)
+    expect(duplicate.save.totalCaptures).toBe(1)
+    expect(duplicate.rejected[0].reason).toBe('duplicate')
+
+    const insufficient = applyWalletTransactions(duplicate.save, [
+      { id: 'revive-2', kind: 'revive', amount: -200 }
+    ])
+    expect(insufficient.balance).toBe(14)
+    expect(insufficient.rejected[0].reason).toBe('insufficient')
   })
 
   it('records higher distance scores and lower time-trial times', () => {
     const base = createDefaultSave()
     const endless: RunResult = {
+      runId: 'record-run-1',
       mode: 'endless',
       difficulty: 'medium',
       character: 'egg',
@@ -521,6 +692,8 @@ describe('local progression and scoring', () => {
       reason: 'caught',
       newRecord: false,
       earnedMilk: 15,
+      instantMilk: 10,
+      settlementMilk: 5,
       captureMilk: 10,
       recordValue: 150,
       recordLabel: '150 米',
@@ -532,23 +705,32 @@ describe('local progression and scoring', () => {
 
     const time: RunResult = {
       ...endless,
+      runId: 'record-run-2',
       mode: 'timeTrial',
       reason: 'finished',
       recordValue: 51.2,
       recordLabel: '51.20 秒'
     }
     const timed = applyRunResult(first.save, time)
-    const faster = applyRunResult(timed.save, { ...time, recordValue: 49.8 })
+    const faster = applyRunResult(timed.save, {
+      ...time,
+      runId: 'record-run-3',
+      recordValue: 49.8
+    })
     expect(faster.newRecord).toBe(true)
     expect(faster.save.records['timeTrial:medium']).toBe(49.8)
   })
 
   it('credits capture milk immediately without adding it again at settlement', () => {
     let save = createDefaultSave()
-    save = creditCaptureReward(save, 10)
+    save = applyWalletTransactions(save, [
+      { id: 'capture-immediate', kind: 'capture', amount: 10 }
+    ]).save
     expect(save.milkCoins).toBe(10)
+    expect(save.totalCaptures).toBe(1)
 
     const result: RunResult = {
+      runId: 'capture-settle-run',
       mode: 'endless',
       difficulty: 'medium',
       character: 'egg',
@@ -561,6 +743,8 @@ describe('local progression and scoring', () => {
       reason: 'wrecked',
       newRecord: false,
       earnedMilk: 15,
+      instantMilk: 10,
+      settlementMilk: 5,
       captureMilk: 10,
       recordValue: 200,
       recordLabel: '200 米',
@@ -568,11 +752,16 @@ describe('local progression and scoring', () => {
     }
     const applied = applyRunResult(save, result)
     expect(applied.save.milkCoins).toBe(15)
+    expect(applied.save.totalCaptures).toBe(1)
+    const duplicateSettlement = applyRunResult(applied.save, result)
+    expect(duplicateSettlement.save.milkCoins).toBe(15)
+    expect(duplicateSettlement.save.totalRuns).toBe(applied.save.totalRuns)
   })
 
   it('does not store a record after the secret event', () => {
     const save = createDefaultSave()
     const result: RunResult = {
+      runId: 'secret-run',
       mode: 'endless',
       difficulty: 'medium',
       character: 'frog',
@@ -585,6 +774,8 @@ describe('local progression and scoring', () => {
       reason: 'wrecked',
       newRecord: false,
       earnedMilk: 40,
+      instantMilk: 20,
+      settlementMilk: 20,
       captureMilk: 0,
       recordValue: 900,
       recordLabel: '900 米',

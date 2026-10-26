@@ -18,11 +18,12 @@ import {
   getDifficulty,
   getMode,
   getNextUnlock,
+  getUnlockProgress,
   recordKey
 } from './data'
 import {
+  applyWalletTransactions,
   applyRunResult,
-  creditCaptureReward,
   loadSave,
   persistSave,
   resetAll,
@@ -37,7 +38,8 @@ import type {
   GameSettings,
   RunResult,
   SaveData,
-  Screen
+  Screen,
+  WalletTransaction
 } from './types'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -139,6 +141,9 @@ export function App() {
   const selectedDifficulty = getDifficulty(difficulty)
   const selectedCharacter = getCharacter(save.character)
   const nextUnlock = getNextUnlock(save)
+  const nextUnlockProgress = nextUnlock
+    ? getUnlockProgress(save, nextUnlock)
+    : null
   const highest = save.records[recordKey(mode, difficulty)] ?? 0
   const totalUnlocked = save.unlocked.length
 
@@ -206,37 +211,39 @@ export function App() {
 
   const handleFinish = useCallback(
     (runResult: RunResult) => {
-      setSave((current) => {
-        const applied = applyRunResult(current, runResult)
-        const key = recordKey(runResult.mode, runResult.difficulty)
-        setResult({
-          ...runResult,
-          newRecord: applied.newRecord,
-          absoluteBest: applied.save.records[key] ?? runResult.recordValue
-        })
-        return applied.save
+      const applied = applyRunResult(saveRef.current, runResult)
+      const key = recordKey(runResult.mode, runResult.difficulty)
+      saveRef.current = applied.save
+      persistSave(applied.save)
+      setSave(applied.save)
+      setResult({
+        ...runResult,
+        newRecord: applied.newRecord,
+        absoluteBest: applied.save.records[key] ?? runResult.recordValue
       })
     },
     []
   )
 
-  const handleCaptureReward = useCallback(
-    (amount: number) => {
-      setSave((current) => creditCaptureReward(current, amount))
-      showToast(`奶鲨进网！奶币 +${amount}`)
-    },
-    [showToast]
-  )
-
-  const spendMilk = useCallback((amount: number): boolean => {
+  const commitWalletTransactions = useCallback((transactions: WalletTransaction[]) => {
     const current = saveRef.current
-    if (amount <= 0 || current.milkCoins < amount) return false
-    const next = { ...current, milkCoins: current.milkCoins - amount }
-    saveRef.current = next
-    persistSave(next)
-    setSave(next)
-    return true
-  }, [])
+    const committed = applyWalletTransactions(current, transactions)
+    if (committed.appliedIds.length) {
+      saveRef.current = committed.save
+      persistSave(committed.save)
+      setSave(committed.save)
+      const capture = transactions.find(
+        (transaction) =>
+          transaction.kind === 'capture' &&
+          committed.appliedIds.includes(transaction.id)
+      )
+      if (capture) showToast(`奶鲨进网！奶币 +${capture.amount}`)
+    }
+    return {
+      balance: committed.balance,
+      appliedIds: committed.appliedIds
+    }
+  }, [showToast])
 
   const selectCharacter = (character: CharacterId) => {
     if (!save.unlocked.includes(character)) {
@@ -248,11 +255,18 @@ export function App() {
   }
 
   const buyNext = () => {
-    const result = tryUnlockNext(save)
+    const current = saveRef.current
+    const result = tryUnlockNext(current)
     if (!result.unlocked) {
-      showToast('奶币还不够，再冲一浪吧。')
+      const message =
+        result.reason === 'runs' || result.reason === 'captures'
+          ? '任务还没完成，再冲几浪吧。'
+          : '奶币还不够，再冲一浪吧。'
+      showToast(message)
       return
     }
+    saveRef.current = result.save
+    persistSave(result.save)
     setSave(result.save)
     showToast(`${getCharacter(result.unlocked).name} 加入冲浪队！`)
     void audio.sfx('heart')
@@ -289,13 +303,17 @@ export function App() {
   }
 
   const gameConfig: GameConfig = useMemo(
-    () => ({
-      mode,
-      difficulty,
-      character: save.character,
-      seed: Date.now() & 0x7fffffff,
-      reducedSpeed: save.settings.reducedSpeed
-    }),
+    () => {
+      const seed = Date.now() & 0x7fffffff
+      return {
+        mode,
+        difficulty,
+        character: save.character,
+        seed,
+        runId: `${seed.toString(36)}-${runId.toString(36)}`,
+        reducedSpeed: save.settings.reducedSpeed
+      }
+    },
     [difficulty, mode, save.character, save.settings.reducedSpeed, runId]
   )
 
@@ -309,8 +327,7 @@ export function App() {
           audio={audio}
           milkCoins={save.milkCoins}
           onFinish={handleFinish}
-          onCaptureReward={handleCaptureReward}
-          onSpendMilk={spendMilk}
+          onWalletTransactions={commitWalletTransactions}
           onExit={() => {
             setScreen('home')
             setResult(null)
@@ -395,7 +412,7 @@ export function App() {
             <div className="cloud-bank bank-two" />
             <img
               className="hero-monster"
-              src={`${import.meta.env.BASE_URL}assets/monster.png`}
+              src={`${import.meta.env.BASE_URL}assets/monster-hero-side.png`}
               alt="黄色奶鲨"
             />
             <div className="character-spotlight">
@@ -548,7 +565,7 @@ export function App() {
         <section className="monster-section">
           <div className="monster-art">
             <img
-              src={`${import.meta.env.BASE_URL}assets/monster.png`}
+              src={`${import.meta.env.BASE_URL}assets/monster-hero-side.png`}
               alt="黄色奶鲨的像素形象"
             />
             <div className="monster-stamp">FAST<br />CHOMP</div>
@@ -588,7 +605,7 @@ export function App() {
         <div>
           {installPrompt && <button onClick={installPwa}>安装到设备</button>}
           <button onClick={() => setGuideOpen(true)}>玩法说明</button>
-          <span>v1.2</span>
+          <span>v1.3</span>
         </div>
       </footer>
 
@@ -618,10 +635,10 @@ export function App() {
       {pendingStart && !tutorialOpen && (
         <button className="resume-start" onClick={startRun}>继续开始</button>
       )}
-      {nextUnlock && save.milkCoins >= nextUnlock.price && (
+      {nextUnlock && nextUnlockProgress?.canUnlock && (
         <button className="unlock-nudge" onClick={() => setShopOpen(true)}>
           <MilkIcon />
-          奶币够了，可以解锁 {nextUnlock.name}
+          解锁条件齐了，可以请回 {nextUnlock.name}
           <span>→</span>
         </button>
       )}

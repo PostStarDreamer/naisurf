@@ -7,6 +7,14 @@ export type Screen = 'home' | 'game'
 export type MotionState = 'cruise' | 'accelerating' | 'braking' | 'boosting'
 export type DamageKind = 'obstacle' | 'monster' | null
 export type RunPhase = 'loading' | 'ready' | 'countdown' | 'playing' | 'downed' | 'ended'
+export type WalletTransactionKind =
+  | 'pickup'
+  | 'heartBonus'
+  | 'capture'
+  | 'revive'
+  | 'unlock'
+  | 'distanceSettlement'
+  | 'refund'
 export type GameEvent =
   | 'collect'
   | 'heart'
@@ -21,6 +29,19 @@ export type GameEvent =
   | 'accelerate'
   | 'brake'
   | 'revive'
+  | 'wallet'
+
+export interface WalletTransaction {
+  id: string
+  kind: WalletTransactionKind
+  amount: number
+  characterId?: CharacterId
+}
+
+export interface UnlockRequirement {
+  runs: number
+  captures: number
+}
 
 export interface CharacterDefinition {
   id: CharacterId
@@ -32,6 +53,7 @@ export interface CharacterDefinition {
   accent: string
   surfImage: string
   showcaseImage: string
+  unlockRequirement: UnlockRequirement
 }
 
 export interface ModeDefinition {
@@ -52,6 +74,7 @@ export interface DifficultyDefinition {
   rampGain: number
   monsterPressure: number
   reward: number
+  rowWindow: number
 }
 
 export interface GameSettings {
@@ -74,6 +97,7 @@ export interface SaveData {
   totalCaptures: number
   tutorialSeen: boolean
   guideVersion?: number
+  recentTransactions: string[]
   settings: GameSettings
 }
 
@@ -90,6 +114,7 @@ export interface GameConfig {
   difficulty: Difficulty
   character: CharacterId
   seed: number
+  runId: string
   reducedSpeed?: boolean
 }
 
@@ -115,11 +140,15 @@ export interface GameSnapshot {
   bestStreak: number
   paused: boolean
   capturedMonsters: number
+  walletCoins: number
+  instantMilk: number
+  damageRevision: number
   invulnerable: boolean
   reviveInvulnerable: boolean
   revivesUsed: number
   reviveCost: number
   canRevive: boolean
+  reviveUnavailableReason: 'extreme' | 'limit' | 'insufficient' | 'not-downed' | null
   secretEventActive: boolean
   debuffRemaining: number
   paceMultiplier: number
@@ -130,6 +159,7 @@ export interface GameSnapshot {
 }
 
 export interface RunResult {
+  runId: string
   mode: GameMode
   difficulty: Difficulty
   character: CharacterId
@@ -142,6 +172,8 @@ export interface RunResult {
   reason: 'finished' | 'wrecked' | 'caught'
   newRecord: boolean
   earnedMilk: number
+  instantMilk: number
+  settlementMilk: number
   captureMilk: number
   recordValue: number
   recordLabel: string
@@ -212,7 +244,7 @@ export interface GameState {
   motionState: MotionState
   score: number
   coins: number
-  earnedMilk: number
+  instantMilkEarned: number
   streak: number
   bestStreak: number
   objects: WorldObject[]
@@ -232,9 +264,11 @@ export interface GameState {
   events: GameEvent[]
   lastDamage: DamageKind
   damageNoticeTimer: number
+  damageRevision: number
   nextHazardRowAt: number
   safeCenter: number
   shake: number
   flash: number
   rng: () => number
+  walletTransactions: WalletTransaction[]
 }

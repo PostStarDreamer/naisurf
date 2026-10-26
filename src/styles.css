@@ -1337,6 +1337,31 @@ svg {
   font-size: 9px;
 }
 
+.unlock-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  margin-top: 7px;
+}
+
+.unlock-progress span {
+  color: var(--ink-soft);
+  font-size: 8px;
+}
+
+.unlock-progress span::before {
+  content: "○";
+  margin-right: 3px;
+}
+
+.unlock-progress span.met {
+  color: var(--sea-deep);
+}
+
+.unlock-progress span.met::before {
+  content: "●";
+}
+
 .small-button {
   border: 2px solid var(--brown);
   border-radius: 7px;

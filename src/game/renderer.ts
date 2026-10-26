@@ -10,12 +10,11 @@ let CANVAS_SCALE = 1
 export interface RenderAssets {
   surfCharacters: Partial<Record<CharacterId, HTMLImageElement>>
   objects: Partial<Record<WorldObject['kind'], HTMLImageElement>>
-  monsterSide?: HTMLImageElement
-  monsterClosed?: HTMLImageElement
-  monsterMid?: HTMLImageElement
-  monsterOpen?: HTMLImageElement
-  monsterBite?: HTMLImageElement
+  monsterLure?: HTMLImageElement
+  monsterCapture?: HTMLImageElement
   monsterRecoil?: HTMLImageElement
+  monsterChaseClosed?: HTMLImageElement
+  monsterChaseOpen?: HTMLImageElement
   net?: HTMLImageElement
 }
 
@@ -33,7 +32,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 export async function loadRenderAssets(): Promise<RenderAssets> {
-  const [surfEntries, objectEntries, monsterSide, monsterClosed, monsterMid, monsterOpen, monsterBite, monsterRecoil, net] =
+  const [surfEntries, objectEntries, monsterLure, monsterCapture, monsterRecoil, monsterChaseClosed, monsterChaseOpen, net] =
     await Promise.all([
       Promise.all(
         CHARACTERS.map(async (character) => {
@@ -58,12 +57,11 @@ export async function loadRenderAssets(): Promise<RenderAssets> {
           return [kind, image] as const
         })
       ),
-      loadImage(assetUrl('assets/monster-side.png')),
-      loadImage(assetUrl('assets/monster-closed.png')),
-      loadImage(assetUrl('assets/monster-mid.png')),
-      loadImage(assetUrl('assets/monster-open.png')),
-      loadImage(assetUrl('assets/monster-bite.png')),
-      loadImage(assetUrl('assets/monster-recoil.png')),
+      loadImage(assetUrl('assets/monster-lure-three-quarter.png')),
+      loadImage(assetUrl('assets/monster-capture-back-three-quarter.png')),
+      loadImage(assetUrl('assets/monster-recoil-three-quarter.png')),
+      loadImage(assetUrl('assets/monster-chase-closed-front.png')),
+      loadImage(assetUrl('assets/monster-chase-open-front.png')),
       loadImage(assetUrl('assets/net.svg'))
     ])
   return {
@@ -71,12 +69,11 @@ export async function loadRenderAssets(): Promise<RenderAssets> {
     objects: Object.fromEntries(objectEntries) as Partial<
       Record<WorldObject['kind'], HTMLImageElement>
     >,
-    monsterSide,
-    monsterClosed,
-    monsterMid,
-    monsterOpen,
-    monsterBite,
+    monsterLure,
+    monsterCapture,
     monsterRecoil,
+    monsterChaseClosed,
+    monsterChaseOpen,
     net
   }
 }
@@ -129,96 +126,73 @@ function drawImageFit(
   ctx.drawImage(image, centerX - width / 2, bottom - height, width, height)
 }
 
-function drawBackground(ctx: CanvasRenderingContext2D, state: GameState): void {
+function drawBackground(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  reducedMotion: boolean
+): void {
+  const motionDistance = reducedMotion ? 0 : state.distance
+  const motionElapsed = reducedMotion ? 0 : state.elapsed
   const gradient = ctx.createLinearGradient(0, 0, 0, HORIZON + 38)
-  gradient.addColorStop(0, '#ffa978')
-  gradient.addColorStop(0.42, '#ffc791')
-  gradient.addColorStop(0.75, '#ffe5b4')
-  gradient.addColorStop(1, '#fff1ce')
+  gradient.addColorStop(0, '#d8aaa4')
+  gradient.addColorStop(0.45, '#e9b7a7')
+  gradient.addColorStop(0.78, '#f4c68d')
+  gradient.addColorStop(1, '#ffdca1')
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, WIDTH, HORIZON + 38)
 
-  const sunSize = Math.min(WIDTH, HEIGHT) * 0.095
-  const sunX = WIDTH * 0.79
-  const sunY = HORIZON * 0.34
-  ctx.fillStyle = 'rgba(255, 236, 154, .2)'
-  for (let index = 1; index <= 3; index++) {
+  const sunSize = Math.min(WIDTH * 0.18, HEIGHT * 0.24)
+  const sunX = WIDTH * 0.77
+  const sunY = HORIZON * (WIDTH / HEIGHT > 1 ? 0.42 : 0.6)
+  ctx.fillStyle = 'rgba(255, 215, 146, .17)'
+  for (let index = 3; index >= 1; index--) {
     ctx.beginPath()
-    ctx.arc(sunX, sunY, sunSize * (1.25 + index * 0.2), 0, Math.PI * 2)
+    ctx.arc(sunX, sunY, sunSize * (1.05 + index * 0.26), 0, Math.PI * 2)
     ctx.fill()
   }
   const sunGradient = ctx.createLinearGradient(sunX, sunY - sunSize, sunX, sunY + sunSize)
-  sunGradient.addColorStop(0, '#ffdc72')
-  sunGradient.addColorStop(0.6, '#ffab72')
-  sunGradient.addColorStop(1, '#ff8c73')
+  sunGradient.addColorStop(0, '#ffe2aa')
+  sunGradient.addColorStop(0.62, '#f4c68d')
+  sunGradient.addColorStop(1, '#d8aaa4')
   ctx.fillStyle = sunGradient
   ctx.beginPath()
   ctx.arc(sunX, sunY, sunSize, 0, Math.PI * 2)
   ctx.fill()
 
-  const drift = state.distance * (0.72 + state.speed * 0.018)
+  const drift = motionDistance * (0.55 + state.speed * 0.012)
   drawCloud(ctx, ((WIDTH * 0.1 - drift * 0.08) % (WIDTH + 210)) - 120, HORIZON * 0.35, 1.05)
   drawCloud(ctx, ((WIDTH * 0.52 - drift * 0.05) % (WIDTH + 260)) - 80, HORIZON * 0.7, 0.72)
   drawCloud(ctx, ((WIDTH * 0.9 - drift * 0.12) % (WIDTH + 230)) - 90, HORIZON * 0.18, 0.54)
 
-  ctx.fillStyle = 'rgba(255, 250, 218, .42)'
-  for (let index = 0; index < 7; index++) {
-    const x = (sunX - 95 + ((state.distance * 0.12 + index * 31) % 190))
+  ctx.fillStyle = 'rgba(255, 239, 201, .38)'
+  for (let index = 0; index < 8; index++) {
+    const x = (sunX - 95 + ((motionDistance * 0.12 + index * 31) % 190))
     ctx.fillRect(x, sunY + sunSize * 0.82 + (index % 3) * 5, 46 + (index % 2) * 24, 3)
   }
 
   ctx.save()
-  ctx.translate(Math.sin(state.distance * 0.003) * 12, 0)
-  drawIsland(ctx, WIDTH * 0.11, HORIZON + 2, 1)
-  drawIsland(ctx, WIDTH * 0.58, HORIZON + 3, 0.64)
-  drawLighthouse(ctx, WIDTH * 0.88, HORIZON + 2, 0.92)
+  ctx.translate(Math.sin(motionDistance * 0.002) * 9, 0)
+  drawIsland(ctx, WIDTH * 0.12, HORIZON + 1, 1.08)
+  drawIsland(ctx, WIDTH * 0.48, HORIZON + 2, 0.7)
+  drawLighthouse(ctx, WIDTH * 0.88, HORIZON + 1, 0.9)
   ctx.restore()
 
-  ctx.strokeStyle = 'rgba(110, 81, 52, .55)'
-  ctx.lineWidth = 1.4
-  ctx.beginPath()
-  ctx.moveTo(WIDTH * 0.03, HORIZON * 0.54)
-  ctx.quadraticCurveTo(WIDTH * 0.5, HORIZON * 0.39, WIDTH * 0.97, HORIZON * 0.57)
-  ctx.stroke()
-  const bannerShift = (state.distance * 0.8) % 38
-  for (let x = -30 + bannerShift; x < WIDTH + 30; x += 38) {
-    const flagY = HORIZON * 0.54 + Math.sin((x / WIDTH) * Math.PI) * -14
-    pathPolygon(
-      ctx,
-      [
-        [x, flagY],
-        [x + 18, flagY + 1],
-        [x + 9, flagY + 13]
-      ],
-      '#ee7659',
-      '#774d39',
-      1
-    )
-  }
+  drawFestivalFlags(ctx, motionElapsed)
 
   const sea = ctx.createLinearGradient(0, HORIZON, 0, HEIGHT)
-  sea.addColorStop(0, '#8be1ca')
-  sea.addColorStop(0.25, '#55c8b9')
-  sea.addColorStop(0.62, '#2ba8a6')
-  sea.addColorStop(1, '#187f91')
+  sea.addColorStop(0, '#759598')
+  sea.addColorStop(0.22, '#5b7f86')
+  sea.addColorStop(0.68, '#466f78')
+  sea.addColorStop(1, '#31555f')
   ctx.fillStyle = sea
   ctx.fillRect(0, HORIZON, WIDTH, HEIGHT - HORIZON)
 
-  ctx.fillStyle = 'rgba(255, 247, 215, .22)'
-  for (let index = 0; index < 18; index++) {
-    const t = index / 18
-    const y = HORIZON + (HEIGHT - HORIZON) * t ** 1.38
-    const width = 35 + t * 620
-    const offset =
-      Math.sin(state.distance * (0.12 + t * 0.08) + index * 1.7) * (7 + t * 36)
-    ctx.globalAlpha = 0.11 + t * 0.23
-    ctx.fillRect(WIDTH / 2 - width / 2 + offset, y, 20 + t * 34, 1.5 + t * 3)
-  }
-  ctx.globalAlpha = 1
+  drawWaveBands(ctx, motionDistance)
 
   const reflection = ctx.createLinearGradient(sunX, HORIZON, sunX, HEIGHT)
-  reflection.addColorStop(0, 'rgba(255, 228, 143, .34)')
-  reflection.addColorStop(1, 'rgba(255, 246, 189, 0)')
+  reflection.addColorStop(0, 'rgba(255, 214, 154, .48)')
+  reflection.addColorStop(0.55, 'rgba(244, 198, 141, .18)')
+  reflection.addColorStop(1, 'rgba(216, 170, 164, 0)')
   ctx.fillStyle = reflection
   ctx.beginPath()
   ctx.moveTo(sunX - sunSize * 0.72, HORIZON)
@@ -228,8 +202,8 @@ function drawBackground(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.closePath()
   ctx.fill()
 
-  ctx.strokeStyle = 'rgba(255, 250, 221, .64)'
-  ctx.lineWidth = 1.5
+  ctx.strokeStyle = 'rgba(211, 226, 215, .68)'
+  ctx.lineWidth = 1.25
   for (const side of [-1, 1]) {
     ctx.beginPath()
     ctx.moveTo(WIDTH / 2 + side * WIDTH * 0.13, HORIZON)
@@ -237,14 +211,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.stroke()
   }
 
-  ctx.fillStyle = 'rgba(255, 250, 220, .72)'
-  for (let index = 0; index < 14; index++) {
-    const phase = (state.distance * (1.9 + index * 0.035) + index * 53) % (WIDTH + 120)
-    const y = HORIZON + 34 + ((index * 41) % Math.max(55, HEIGHT - HORIZON - 45))
-    const x = (phase + index * 71) % (WIDTH + 100)
-    ctx.fillRect(x - WIDTH * 0.62, y, 20 + (index % 3) * 9, 2.5)
-    ctx.fillRect(x - WIDTH * 0.62 + 10, y + 5, 11, 1.7)
-  }
+  drawOceanGlints(ctx, motionElapsed, sunX)
 }
 
 function drawCloud(
@@ -256,15 +223,16 @@ function drawCloud(
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(scale, scale)
-  ctx.fillStyle = 'rgba(255, 248, 221, .48)'
-  ctx.fillRect(0, 12, 92, 17)
-  ctx.fillRect(8, 5, 28, 17)
-  ctx.fillRect(30, 0, 35, 24)
-  ctx.fillRect(59, 7, 25, 17)
-  ctx.fillStyle = 'rgba(255, 194, 145, .25)'
-  ctx.fillRect(12, 26, 69, 5)
-  ctx.fillStyle = 'rgba(255, 255, 241, .35)'
-  ctx.fillRect(37, 5, 20, 6)
+  ctx.fillStyle = 'rgba(255, 237, 207, .34)'
+  ctx.fillRect(0, 13, 88, 13)
+  ctx.fillRect(10, 7, 25, 14)
+  ctx.fillRect(29, 2, 33, 20)
+  ctx.fillRect(56, 8, 24, 14)
+  ctx.fillStyle = 'rgba(255, 249, 224, .58)'
+  ctx.fillRect(36, 4, 18, 5)
+  ctx.fillRect(16, 9, 13, 4)
+  ctx.fillStyle = 'rgba(216, 170, 164, .18)'
+  ctx.fillRect(12, 25, 65, 3)
   ctx.restore()
 }
 
@@ -280,21 +248,27 @@ function drawIsland(
   pathPolygon(
     ctx,
     [
-      [-115, 1],
-      [-78, -29],
-      [-36, -12],
-      [0, -46],
-      [40, -10],
-      [80, -25],
-      [124, 2]
+      [-128, 2],
+      [-91, -26],
+      [-61, -14],
+      [-27, -48],
+      [-5, -31],
+      [20, -16],
+      [49, -39],
+      [76, -17],
+      [102, -24],
+      [132, 2]
     ],
-    '#479f85',
-    '#377c70',
-    2
+    '#526164',
+    '#39494c',
+    1.5
   )
-  ctx.fillStyle = '#7fc69d'
-  ctx.fillRect(-44, -25, 46, 7)
-  ctx.fillRect(71, -17, 25, 5)
+  ctx.fillStyle = 'rgba(176, 178, 155, .36)'
+  ctx.fillRect(-87, -14, 23, 4)
+  ctx.fillRect(-17, -30, 14, 4)
+  ctx.fillRect(46, -23, 20, 4)
+  ctx.fillStyle = 'rgba(30, 55, 61, .24)'
+  ctx.fillRect(-121, -1, 246, 5)
   ctx.restore()
 }
 
@@ -310,53 +284,180 @@ function drawLighthouse(
   pathPolygon(
     ctx,
     [
-      [-52, 0],
-      [-35, -21],
-      [-4, -9],
-      [25, -26],
-      [58, 0]
+      [-48, 0],
+      [-36, -16],
+      [-15, -9],
+      [3, -22],
+      [22, -11],
+      [49, 0]
     ],
-    '#4a9c83',
-    '#377c70',
-    2
+    '#526164',
+    '#39494c',
+    1.5
   )
   pathPolygon(
     ctx,
     [
-      [-8, -2],
-      [-4, -50],
-      [8, -50],
-      [13, -2]
+      [-9, -3],
+      [-5, -55],
+      [7, -55],
+      [12, -3]
     ],
-    '#fff3cf',
-    '#6e4d38',
-    2
+    '#8f604a',
+    '#543f37',
+    1.5
   )
-  ctx.fillStyle = '#ee775c'
-  ctx.fillRect(-6, -40, 16, 8)
-  ctx.fillRect(-5, -22, 14, 7)
-  ctx.fillStyle = '#ffdc73'
-  ctx.fillRect(-5, -57, 15, 8)
-  ctx.fillStyle = '#ee775c'
+  ctx.fillStyle = '#d8aaa4'
+  ctx.fillRect(-7, -46, 15, 8)
+  ctx.fillRect(-6, -27, 13, 7)
+  ctx.fillStyle = '#ffd792'
+  ctx.fillRect(-5, -63, 14, 9)
+  ctx.fillStyle = '#543f37'
+  ctx.fillRect(-2, -42, 5, 7)
   pathPolygon(
     ctx,
     [
-      [-9, -58],
-      [2, -68],
-      [14, -58]
+      [-10, -63],
+      [2, -74],
+      [15, -63]
     ],
-    '#ee775c',
-    '#6e4d38',
-    2
+    '#714a3d',
+    '#543f37',
+    1.5
   )
-  ctx.globalAlpha = 0.22
-  ctx.fillStyle = '#fff5b8'
+  ctx.globalAlpha = 0.13
+  ctx.fillStyle = '#ffd792'
   ctx.beginPath()
-  ctx.moveTo(0, -54)
-  ctx.lineTo(62, -74)
-  ctx.lineTo(62, -36)
+  ctx.moveTo(0, -59)
+  ctx.lineTo(64, -73)
+  ctx.lineTo(64, -44)
   ctx.closePath()
   ctx.fill()
+  ctx.restore()
+}
+
+function drawFestivalFlags(
+  ctx: CanvasRenderingContext2D,
+  elapsed: number
+): void {
+  const segments = WIDTH < 520 ? 9 : 14
+  const step = WIDTH / segments
+  const baseline = HORIZON * 0.5
+  const sag = HORIZON * 0.17
+  const points: Array<[number, number]> = []
+  for (let index = 0; index <= segments; index += 1) {
+    const progress = index / segments
+    points.push([
+      progress * WIDTH,
+      baseline + Math.sin(progress * Math.PI) * sag
+    ])
+  }
+
+  ctx.save()
+  ctx.strokeStyle = 'rgba(72, 53, 48, .72)'
+  ctx.lineWidth = 1.2
+  ctx.beginPath()
+  ctx.moveTo(points[0][0], points[0][1])
+  for (let index = 1; index < points.length; index += 1) {
+    ctx.lineTo(points[index][0], points[index][1])
+  }
+  ctx.stroke()
+
+  for (let index = 0; index < segments; index += 1) {
+    const [x, y] = points[index]
+    const flap = Math.sin(elapsed * 2.8 + index * 1.37)
+    const width = step * (0.42 + (index % 3) * 0.035)
+    const height = Math.max(10, HORIZON * 0.09)
+    pathPolygon(
+      ctx,
+      [
+        [x + 1, y + 1],
+        [x + width, y + flap * 1.8],
+        [x + width * 0.53, y + height + flap * 2.4]
+      ],
+      '#c76e6c',
+      '#75443f',
+      1
+    )
+  }
+  ctx.restore()
+}
+
+function drawWaveBands(
+  ctx: CanvasRenderingContext2D,
+  distance: number
+): void {
+  const seaHeight = HEIGHT - HORIZON
+  const layers = [
+    { alpha: 0.17, speed: 8, color: '#b3c4b8', width: 0.7 },
+    { alpha: 0.2, speed: 16, color: '#8fb0ae', width: 0.95 },
+    { alpha: 0.25, speed: 25, color: '#d3ded0', width: 1.3 }
+  ]
+  ctx.save()
+  for (let layer = 0; layer < layers.length; layer += 1) {
+    const spec = layers[layer]
+    ctx.strokeStyle = spec.color
+    ctx.globalAlpha = spec.alpha
+    ctx.lineWidth = spec.width
+    const lineCount = WIDTH < 520 ? 22 : 30
+    for (let index = 0; index < lineCount; index += 1) {
+      const t = (index + layer * 0.35) / lineCount
+      const y =
+        HORIZON +
+        14 +
+        seaHeight * t ** 1.35 +
+        Math.sin(index * 2.1 + layer) * (1 + t * 7)
+      const offset =
+        ((distance * spec.speed + index * 83 + layer * 49) %
+          (WIDTH + 180)) -
+        90
+      const length = 18 + t * (55 + layer * 20)
+      ctx.beginPath()
+      ctx.moveTo(offset, y)
+      ctx.bezierCurveTo(
+        offset + length * 0.3,
+        y - 2 - layer,
+        offset + length * 0.7,
+        y + 2 + layer,
+        offset + length,
+        y
+      )
+      ctx.stroke()
+    }
+  }
+  ctx.globalAlpha = 1
+  ctx.fillStyle = 'rgba(30, 64, 70, .2)'
+  const grainStep = WIDTH < 520 ? 23 : 31
+  for (let y = HORIZON + 18; y < HEIGHT; y += grainStep) {
+    for (let x = (y * 7) % 29; x < WIDTH; x += grainStep * 2) {
+      const drift = (distance * 2 + x + y) % grainStep
+      ctx.fillRect(x + drift * 0.3, y, 2, 1)
+    }
+  }
+  ctx.restore()
+}
+
+function drawOceanGlints(
+  ctx: CanvasRenderingContext2D,
+  elapsed: number,
+  sunX: number
+): void {
+  ctx.save()
+  ctx.fillStyle = 'rgba(255, 225, 172, .68)'
+  const spread = WIDTH * 0.13
+  for (let index = 0; index < 22; index += 1) {
+    const t = index / 22
+    const y = HORIZON + 8 + t * (HEIGHT - HORIZON) * 0.88
+    const drift =
+      Math.sin(elapsed * (0.8 + t) + index * 1.7) * (6 + t * 25)
+    const x =
+      sunX +
+      Math.sin(index * 2.4) * spread * (0.22 + t * 0.78) +
+      drift -
+      WIDTH * 0.07
+    ctx.globalAlpha = 0.16 + (1 - t) * 0.38
+    ctx.fillRect(x, y, 8 + t * 28, 1 + t * 2)
+  }
   ctx.restore()
 }
 
@@ -738,14 +839,14 @@ function drawLurkingMonster(
   state: GameState,
   assets: RenderAssets
 ): void {
-  if (state.monster.state !== 'lurking' || !assets.monsterSide) return
+  if (state.monster.state !== 'lurking' || !assets.monsterLure) return
   const projected = project(state.monster.x, state.monster.z)
   const scale = projected.scale * 1.08
   ctx.save()
   ctx.globalAlpha = 0.88
   drawImageFit(
     ctx,
-    assets.monsterSide,
+    assets.monsterLure,
     projected.x,
     projected.y + 5 * scale,
     120 * scale,
@@ -788,16 +889,14 @@ function drawChasingMonster(
   const y = HEIGHT - size * 0.32 + (1 - closeness) * 34
   ctx.save()
   ctx.globalAlpha = 0.38 + closeness * 0.62
-  const frames = [
-    assets.monsterClosed,
-    assets.monsterMid,
-    assets.monsterOpen,
-    assets.monsterBite
-  ]
+  const frames = [assets.monsterChaseClosed, assets.monsterChaseOpen]
   const monsterImage =
-    state.monster.state === 'recoiling' || state.monster.state === 'captured'
+    state.monster.state === 'captured'
+      ? assets.monsterCapture
+      : state.monster.state === 'recoiling'
       ? assets.monsterRecoil
-      : frames[state.monster.animationFrame] ?? assets.monsterClosed
+      : frames[state.monster.animationFrame % frames.length] ??
+        assets.monsterChaseClosed
   if (monsterImage) {
     drawImageFit(ctx, monsterImage, x, y, size, size)
   }
@@ -949,7 +1048,7 @@ export function renderGame(
   WIDTH = ctx.canvas.width
   HEIGHT = ctx.canvas.height
   const landscape = WIDTH / HEIGHT > 1
-  HORIZON = HEIGHT * (landscape ? 0.455 : 0.32)
+  HORIZON = HEIGHT * (landscape ? 0.37 : 0.31)
   CANVAS_SCALE = Math.max(0.88, Math.min(1.12, WIDTH / 640))
   ctx.clearRect(0, 0, WIDTH, HEIGHT)
   ctx.imageSmoothingEnabled = false
@@ -961,7 +1060,7 @@ export function renderGame(
     ctx.translate(shakeX, shakeY)
   }
 
-  drawBackground(ctx, state)
+  drawBackground(ctx, state, settings.reducedMotion)
   const sorted = [...state.objects].sort((a, b) => b.z - a.z)
   for (const object of sorted) drawObject(ctx, state, object, settings, assets)
   drawLurkingMonster(ctx, state, assets)

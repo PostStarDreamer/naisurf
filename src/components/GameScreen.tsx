@@ -24,7 +24,8 @@ import type {
   GameConfig,
   GameSettings,
   GameSnapshot,
-  RunResult
+  RunResult,
+  WalletTransaction
 } from '../types'
 import type { AudioEngine } from '../audio'
 
@@ -34,8 +35,10 @@ interface GameScreenProps {
   audio: AudioEngine
   milkCoins: number
   onFinish: (result: RunResult) => void
-  onCaptureReward: (amount: number) => void
-  onSpendMilk: (amount: number) => boolean
+  onWalletTransactions: (transactions: WalletTransaction[]) => {
+    balance: number
+    appliedIds: string[]
+  }
   onExit: () => void
   onRestart: () => void
 }
@@ -52,8 +55,7 @@ export function GameScreen({
   audio,
   milkCoins,
   onFinish,
-  onCaptureReward,
-  onSpendMilk,
+  onWalletTransactions,
   onExit,
   onRestart
 }: GameScreenProps) {
@@ -77,12 +79,21 @@ export function GameScreen({
   const touchSteerRef = useRef(0)
   const reportedRef = useRef(false)
   const playStartedRef = useRef(false)
-  const [hud, setHud] = useState<GameSnapshot>(() => snapshotGame(gameRef.current))
+  const walletBalanceRef = useRef(milkCoins)
+  const [walletBalance, setWalletBalance] = useState(milkCoins)
+  const [hud, setHud] = useState<GameSnapshot>(() =>
+    snapshotGame(gameRef.current, milkCoins)
+  )
   const [assetsLoaded, setAssetsLoaded] = useState(false)
   const [fontsLoaded, setFontsLoaded] = useState(false)
   const [reviving, setReviving] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const mode = getMode(config.mode)
+
+  useEffect(() => {
+    walletBalanceRef.current = milkCoins
+    setWalletBalance(milkCoins)
+  }, [milkCoins])
 
   useEffect(() => {
     let disposed = false
@@ -150,7 +161,7 @@ export function GameScreen({
         renderGame(context, state, assetsRef.current, settings)
         playStartedRef.current = true
         beginGamePlay(state)
-        setHud(snapshotGame(state))
+        setHud(snapshotGame(state, walletBalanceRef.current))
       }
 
       const keySteer =
@@ -180,13 +191,19 @@ export function GameScreen({
         },
         dt
       )
+      if (state.walletTransactions.length) {
+        const transactions = state.walletTransactions.splice(0)
+        const committed = onWalletTransactions(transactions)
+        walletBalanceRef.current = committed.balance
+        setWalletBalance(committed.balance)
+        hudElapsed = 0
+      }
       if (state.events.length) {
         for (const event of state.events) {
-          void audio.sfx(event)
-          if (event === 'capture') onCaptureReward(10)
+          if (event !== 'wallet') void audio.sfx(event)
         }
         hudElapsed = 0
-        setHud(snapshotGame(state))
+        setHud(snapshotGame(state, walletBalanceRef.current))
         state.events.length = 0
       }
       audio.setChaseAmbience(
@@ -198,7 +215,7 @@ export function GameScreen({
 
       if (hudElapsed > 0.07) {
         hudElapsed = 0
-        setHud(snapshotGame(state))
+        setHud(snapshotGame(state, walletBalanceRef.current))
       }
 
       if (state.result && !reportedRef.current) {
@@ -213,7 +230,7 @@ export function GameScreen({
 
     animationFrame = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(animationFrame)
-  }, [assetsLoaded, audio, fontsLoaded, onCaptureReward, onFinish, settings])
+  }, [assetsLoaded, audio, fontsLoaded, onFinish, onWalletTransactions, settings])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -256,7 +273,7 @@ export function GameScreen({
           gameRef.current.paused = !gameRef.current.paused
           releaseTouchInput()
           if (gameRef.current.paused) audio.setChaseAmbience(false)
-          setHud(snapshotGame(gameRef.current))
+          setHud(snapshotGame(gameRef.current, walletBalanceRef.current))
         }
       }
       if (key === 'escape') {
@@ -264,7 +281,7 @@ export function GameScreen({
           gameRef.current.paused = !gameRef.current.paused
           releaseTouchInput()
           if (gameRef.current.paused) audio.setChaseAmbience(false)
-          setHud(snapshotGame(gameRef.current))
+          setHud(snapshotGame(gameRef.current, walletBalanceRef.current))
         }
       }
     }
@@ -323,7 +340,7 @@ export function GameScreen({
     gameRef.current.paused = !gameRef.current.paused
     releaseInput()
     if (gameRef.current.paused) audio.setChaseAmbience(false)
-    setHud(snapshotGame(gameRef.current))
+    setHud(snapshotGame(gameRef.current, walletBalanceRef.current))
   }
 
   const holdTouch = (key: 'left' | 'right' | 'accelerate' | 'brake' | 'boost') => ({
@@ -350,8 +367,14 @@ export function GameScreen({
 
   const chasePercent = Math.max(0, Math.min(100, (hud.monsterGap / 78) * 100))
   const countdownNumber = Math.max(1, Math.ceil(hud.countdown))
-  const reviveAffordable = milkCoins >= hud.reviveCost && hud.canRevive
+  const reviveAffordable = walletBalance >= hud.reviveCost && hud.canRevive
   const revivesRemaining = Math.max(0, MAX_REVIVES - hud.revivesUsed)
+  const reviveDisabledText =
+    hud.reviveUnavailableReason === 'limit'
+      ? '本局复活次数已用完'
+      : hud.reviveUnavailableReason === 'insufficient'
+        ? `还差 ${Math.max(0, hud.reviveCost - walletBalance)} 奶币`
+        : '当前模式不能复活'
   const modeProgress =
     config.mode === 'timeTrial'
       ? Math.min(100, (hud.distance / hud.targetDistance) * 100)
@@ -425,6 +448,7 @@ export function GameScreen({
             aria-label={`剩余 ${hud.lives} 条生命`}
             aria-live="assertive"
             aria-atomic="true"
+            data-damage-revision={hud.damageRevision}
           >
             {Array.from({ length: hud.maxLives }).map((_, index) => (
               <span key={index} className={index < hud.lives ? 'heart full' : 'heart'}>
@@ -432,9 +456,13 @@ export function GameScreen({
               </span>
             ))}
           </div>
-          <div className="hud-chip milk-chip">
+          <div
+            className="hud-chip milk-chip"
+            aria-label={`永久奶币 ${walletBalance}`}
+            data-wallet-balance={walletBalance}
+          >
             <span className="milk-dot" />
-            <strong className="pixel-font">{hud.coins}</strong>
+            <strong className="pixel-font">{walletBalance}</strong>
           </div>
           {hud.shield > 0 && (
             <div className="hud-chip shield-chip">
@@ -568,7 +596,7 @@ export function GameScreen({
               <p>{hud.lastDamage === 'monster' ? '奶鲨这一下太狠了。' : '浪板翻了，不过还没到收工的时候。'}</p>
               <div className="revive-summary">
                 <span>本次复活 <strong>{hud.reviveCost} 奶币</strong></span>
-                <span>余额 <strong>{milkCoins}</strong></span>
+                <span>余额 <strong>{walletBalance}</strong></span>
                 <span>剩余 <strong>{revivesRemaining} 次</strong></span>
               </div>
               {hud.canRevive ? (
@@ -578,26 +606,51 @@ export function GameScreen({
                   onClick={() => {
                     if (!reviveAffordable || reviving) return
                     setReviving(true)
-                    if (onSpendMilk(hud.reviveCost) && reviveGame(gameRef.current)) {
-                      setHud(snapshotGame(gameRef.current))
+                    const transactionId = `revive:${config.runId}:${hud.revivesUsed + 1}`
+                    const committed = onWalletTransactions([
+                      {
+                        id: transactionId,
+                        kind: 'revive',
+                        amount: -hud.reviveCost
+                      }
+                    ])
+                    if (committed.appliedIds.includes(transactionId)) {
+                      walletBalanceRef.current = committed.balance
+                      setWalletBalance(committed.balance)
+                      if (reviveGame(gameRef.current)) {
+                        setHud(
+                          snapshotGame(gameRef.current, walletBalanceRef.current)
+                        )
+                      } else {
+                        const refundId = `refund:${transactionId}`
+                        const refunded = onWalletTransactions([
+                          {
+                            id: refundId,
+                            kind: 'refund',
+                            amount: hud.reviveCost
+                          }
+                        ])
+                        walletBalanceRef.current = refunded.balance
+                        setWalletBalance(refunded.balance)
+                      }
                     }
                     setReviving(false)
                   }}
                 >
                   {reviveAffordable
                     ? `花 ${hud.reviveCost} 奶币继续`
-                    : `还差 ${hud.reviveCost - milkCoins} 奶币`}
+                    : reviveDisabledText}
                 </button>
               ) : (
                 <button className="primary-button revive-button" disabled>
-                  本局复活次数已用完
+                  {reviveDisabledText}
                 </button>
               )}
               <small className="revive-hint">复活后恢复 3 条命，并获得 1 秒保护。</small>
               <div className="revive-secondary-actions">
                 <button className="secondary-button" onClick={() => {
                   endDownedRun(gameRef.current)
-                  setHud(snapshotGame(gameRef.current))
+                  setHud(snapshotGame(gameRef.current, walletBalanceRef.current))
                 }}>结束本局</button>
                 <button className="text-button muted" onClick={onExit}>返回岸边</button>
               </div>

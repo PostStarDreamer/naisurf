@@ -5,7 +5,8 @@ import {
   getCharacter,
   getDifficulty,
   getMode,
-  getNextUnlock
+  getNextUnlock,
+  getUnlockProgress
 } from '../data'
 import type {
   CharacterId,
@@ -100,6 +101,7 @@ export function ShopModal({
           const isNext = next?.id === character.id
           const selected = save.character === character.id
           const blocked = !owned && !isNext
+          const progress = getUnlockProgress(save, character)
           return (
             <article
               className={`shop-item ${owned ? 'owned' : ''} ${isNext ? 'next' : ''}`}
@@ -111,6 +113,21 @@ export function ShopModal({
                 <h3>{character.name}</h3>
                 <p>{character.ability}</p>
                 <small>{character.tradeoff}</small>
+                {!owned && (
+                  <div className="unlock-progress" aria-label={`${character.name}解锁进度`}>
+                    <span className={progress.coinsMet ? 'met' : ''}>
+                      奶币 {Math.min(save.milkCoins, character.price)} / {character.price}
+                    </span>
+                    <span className={progress.runsMet ? 'met' : ''}>
+                      冲浪 {Math.min(save.totalRuns, character.unlockRequirement.runs)} / {character.unlockRequirement.runs} 局
+                    </span>
+                    {character.unlockRequirement.captures > 0 && (
+                      <span className={progress.capturesMet ? 'met' : ''}>
+                        捕鲨 {Math.min(save.totalCaptures, character.unlockRequirement.captures)} / {character.unlockRequirement.captures} 条
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               {owned ? (
                 <button
@@ -124,9 +141,13 @@ export function ShopModal({
                 <button
                   className="small-button buy"
                   onClick={onBuy}
-                  disabled={save.milkCoins < character.price}
+                  disabled={!progress.canUnlock}
                 >
-                  {character.price} 奶币解锁
+                  {progress.canUnlock
+                    ? `${character.price} 奶币解锁`
+                    : !progress.coinsMet
+                      ? `还差 ${character.price - save.milkCoins} 奶币`
+                      : '任务未完成'}
                 </button>
               ) : (
                 <span className="locked-note">
@@ -320,13 +341,13 @@ const RULE_OBJECTS = [
     icon: 'assets/objects/coin.svg',
     category: '中性',
     name: '奶滴',
-    detail: '顺手捞起来就好。奶滴会进局内计数，也会影响对应模式成绩。'
+    detail: '顺手捞起来就好。每枚奶滴会立刻变成 1 枚永久奶币。'
   },
   {
     icon: 'assets/objects/heart.svg',
     category: 'Buff',
     name: '爱心',
-    detail: '残血时回 1 条命；满 5 条命再捡，会换成 3 枚奶币。'
+    detail: '残血时回 1 条命；满 5 条命再捡，会立刻换成 3 枚奶币。'
   },
   {
     icon: 'assets/objects/boost.svg',
@@ -390,10 +411,10 @@ export function RulesQuickReference({ onClose }: { onClose: () => void }) {
       </div>
       <div className="monster-rule-card">
         <strong>奶鲨怎么追，怎么抓</strong>
-        <p>奶鲨先在浪边慢慢游。没撞上时，你横向靠近到 0.5 以内，它就会追；直接撞上或让它追到零距离，会扣 2 命，它也会停下。</p>
+        <p>奶鲨先在浪边慢慢游。没撞上时，你横向靠近到约 0.62 以内，它就会追；直接撞上或让它追到零距离，会扣 2 命，它也会停下。</p>
         <p>渔网只在追击时出现。它离你不到 24 米，你又贴近网中心，就能抓住当前这条奶鲨并拿到 10 枚奶币。下一段浪里还会遇到新的奶鲨。</p>
         <strong className="rule-subhead">复活与极限模式</strong>
-        <p>普通模式每局最多复活 3 次，依次花 100、200、300 枚奶币，复活后回 3 条命并保护 1 秒。极限模式不能复活，命用完就结束。</p>
+        <p>奶滴、满血爱心和捕获奖励会立即存进奶币余额；距离奖励在结算时再加一次。普通模式每局最多复活 3 次，依次花 100、200、300 枚奶币，复活后回 3 条命并保护 1 秒。极限模式不能复活。</p>
       </div>
     </Modal>
   )
@@ -526,7 +547,9 @@ export function ResultOverlay({
         <div className="result-grid">
           <div><span>奶滴</span><strong>{result.coins}</strong></div>
           <div><span>捕获奶鲨</span><strong>{result.captures}</strong></div>
-          <div><span>本局奶币</span><strong>+{result.earnedMilk}</strong></div>
+          <div><span>即时奶币</span><strong>+{result.instantMilk}</strong></div>
+          <div><span>距离结算</span><strong>+{result.settlementMilk}</strong></div>
+          <div><span>本局合计</span><strong>+{result.earnedMilk}</strong></div>
         </div>
         {!result.shouldCountRecord && (
           <p className="result-note">隐藏奶浪已触发，本局不计入最高成绩。</p>
@@ -596,8 +619,9 @@ export function ModeGuide({
       </div>
       <div className="guide-note">
         <strong>奶鲨只会在无尽浪潮和极限模式出现。</strong>
-        <p>它先在浪边潜伏。没撞上时，横向距离进入 0.5 才会追；撞上或被追到零距离会扣 2 命，并让它停下。渔网只在追击时出现，抓住当前奶鲨能拿到 10 枚奶币。</p>
-        <p>普通模式每局最多复活 3 次，费用依次是 100、200、300 枚奶币；复活后回 3 条命，并获得 1 秒保护。极限模式不能复活。</p>
+        <p>它先在浪边潜伏。没撞上时，横向距离进入约 0.62 才会追；撞上或被追到零距离会扣 2 命，并让它停下。渔网只在追击时出现，抓住当前奶鲨能拿到 10 枚奶币。</p>
+        <p>奶滴、满血爱心和捕获奖励会立即进入永久奶币余额。普通模式每局最多复活 3 次，费用依次是 100、200、300 枚奶币；极限模式不能复活。</p>
+        <p>后续浪友需要同时满足奶币和累计任务。已解锁的角色不会因为任务调整重新上锁。</p>
         <p>电脑：A/D 转向、W 加速、S 刹车、F 冲刺。手机：按住左右半屏转向，底部按钮控制加速、刹车和冲刺。</p>
       </div>
     </Modal>

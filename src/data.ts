@@ -16,6 +16,7 @@ export const CHARACTERS: CharacterDefinition[] = [
     ability: '蛋壳缓冲：撞完以后多一点保护',
     tradeoff: '冲刺能量攒得慢 8%',
     price: 0,
+    unlockRequirement: { runs: 0, captures: 0 },
     accent: '#ffd84f',
     surfImage: 'assets/characters/egg-surf.png',
     showcaseImage: 'assets/showcase/egg.png'
@@ -26,7 +27,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     title: '大耳朵先听见浪',
     ability: '顺风耳：附近道具更容易吸过来',
     tradeoff: '起步加速慢 5%',
-    price: 60,
+    price: 180,
+    unlockRequirement: { runs: 3, captures: 0 },
     accent: '#f4bd62',
     surfImage: 'assets/characters/mouse-surf.png',
     showcaseImage: 'assets/showcase/mouse.png'
@@ -37,7 +39,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     title: '拍着翅膀往前冲',
     ability: '扑翅冲刺：一次能冲得更久',
     tradeoff: '转向稍慢 5%',
-    price: 120,
+    price: 400,
+    unlockRequirement: { runs: 8, captures: 4 },
     accent: '#f57955',
     surfImage: 'assets/characters/chicken-surf.png',
     showcaseImage: 'assets/showcase/chicken.png'
@@ -48,7 +51,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     title: '笑呵呵的救生员',
     ability: '咧嘴护航：泡泡盾更耐用',
     tradeoff: '开局冲刺能量少 10%',
-    price: 180,
+    price: 750,
+    unlockRequirement: { runs: 15, captures: 8 },
     accent: '#f4c172',
     surfImage: 'assets/characters/dog-surf.png',
     showcaseImage: 'assets/showcase/dog.png'
@@ -59,7 +63,8 @@ export const CHARACTERS: CharacterDefinition[] = [
     title: '拐弯最快的浪友',
     ability: '蛙泳急转：转向更灵活',
     tradeoff: '平路速度慢 6%',
-    price: 240,
+    price: 1200,
+    unlockRequirement: { runs: 24, captures: 16 },
     accent: '#ffcf45',
     surfImage: 'assets/characters/frog-surf.png',
     showcaseImage: 'assets/showcase/frog.png'
@@ -67,7 +72,7 @@ export const CHARACTERS: CharacterDefinition[] = [
 ]
 
 export const UNLOCK_ORDER: CharacterId[] = ['egg', 'mouse', 'chicken', 'dog', 'frog']
-export const CURRENT_GUIDE_VERSION = 2
+export const CURRENT_GUIDE_VERSION = 3
 
 export const MODES: ModeDefinition[] = [
   {
@@ -109,41 +114,45 @@ export const DIFFICULTIES: DifficultyDefinition[] = [
     id: 'easy',
     name: '简单',
     description: '先熟悉转向和冲刺。浪面更宽，留给你反应的时间也更多。',
-    speed: 0.96,
-    spacing: 1.15,
-    rampGain: 0.1,
-    monsterPressure: 0.9,
-    reward: 1
+    speed: 1,
+    spacing: 1,
+    rampGain: 0.12,
+    monsterPressure: 1,
+    reward: 1,
+    rowWindow: 1.55
   },
   {
     id: 'medium',
     name: '中等',
     description: '标准节奏。障碍、奶鲨和道具都会认真招呼你。',
-    speed: 1.13,
-    spacing: 0.92,
-    rampGain: 0.18,
-    monsterPressure: 1.1,
-    reward: 1.12
+    speed: 1.18,
+    spacing: 0.8,
+    rampGain: 0.22,
+    monsterPressure: 1.25,
+    reward: 1.12,
+    rowWindow: 1.45
   },
   {
     id: 'hard',
     name: '困难',
     description: '浪面更挤，奶鲨追得更紧。适合已经摸熟手感的浪友。',
-    speed: 1.38,
-    spacing: 0.72,
-    rampGain: 0.26,
-    monsterPressure: 1.4,
-    reward: 1.28
+    speed: 1.46,
+    spacing: 0.62,
+    rampGain: 0.3,
+    monsterPressure: 1.6,
+    reward: 1.28,
+    rowWindow: 1.35
   },
   {
     id: 'hell',
     name: '地狱',
     description: '开局就很凶，后面还会一路加速。留好冲刺，别眨眼。',
-    speed: 1.93,
-    spacing: 0.54,
-    rampGain: 0.36,
-    monsterPressure: 1.7,
-    reward: 1.48
+    speed: 2.05,
+    spacing: 0.48,
+    rampGain: 0.4,
+    monsterPressure: 1.95,
+    reward: 1.48,
+    rowWindow: 1.35
   }
 ]
 
@@ -166,6 +175,7 @@ export function createDefaultSave(): SaveData {
     totalCaptures: 0,
     tutorialSeen: false,
     guideVersion: 0,
+    recentTransactions: [],
     settings: { ...DEFAULT_SETTINGS }
   }
 }
@@ -197,4 +207,27 @@ export function formatScore(mode: GameMode, value: number): string {
 export function getNextUnlock(save: SaveData): CharacterDefinition | undefined {
   const nextId = UNLOCK_ORDER.find((id) => !save.unlocked.includes(id))
   return nextId ? getCharacter(nextId) : undefined
+}
+
+export function getUnlockProgress(
+  save: SaveData,
+  character: CharacterDefinition
+): {
+  runsMet: boolean
+  capturesMet: boolean
+  requirementsMet: boolean
+  coinsMet: boolean
+  canUnlock: boolean
+} {
+  const runsMet = save.totalRuns >= character.unlockRequirement.runs
+  const capturesMet = save.totalCaptures >= character.unlockRequirement.captures
+  const requirementsMet = runsMet && capturesMet
+  const coinsMet = save.milkCoins >= character.price
+  return {
+    runsMet,
+    capturesMet,
+    requirementsMet,
+    coinsMet,
+    canUnlock: requirementsMet && coinsMet
+  }
 }
