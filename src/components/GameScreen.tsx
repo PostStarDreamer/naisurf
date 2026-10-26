@@ -3,6 +3,7 @@ import { getMode } from '../data'
 import {
   MAX_REVIVES,
   MONSTER_ESCAPE_GAP,
+  INITIAL_LIVES,
   beginGamePlay,
   createRunGame,
   endDownedRun,
@@ -81,7 +82,9 @@ export function GameScreen({
   const reportedRef = useRef(false)
   const playStartedRef = useRef(false)
   const walletBalanceRef = useRef(milkCoins)
+  const previousLivesRef = useRef(INITIAL_LIVES)
   const [walletBalance, setWalletBalance] = useState(milkCoins)
+  const [heartChange, setHeartChange] = useState({ token: 0, delta: 0 })
   const [hud, setHud] = useState<GameSnapshot>(() =>
     snapshotGame(gameRef.current, milkCoins)
   )
@@ -95,6 +98,14 @@ export function GameScreen({
     walletBalanceRef.current = milkCoins
     setWalletBalance(milkCoins)
   }, [milkCoins])
+
+  useEffect(() => {
+    const delta = hud.lives - previousLivesRef.current
+    previousLivesRef.current = hud.lives
+    if (delta !== 0) {
+      setHeartChange((current) => ({ token: current.token + 1, delta }))
+    }
+  }, [hud.lives])
 
   useEffect(() => {
     let disposed = false
@@ -455,11 +466,19 @@ export function GameScreen({
 
         <div className="game-hud game-hud-left">
           <div
-            className="hud-chip hearts"
+            key={`${hud.lives}-${heartChange.token}`}
+            className={`hud-chip hearts ${
+              heartChange.delta < 0
+                ? 'heart-loss'
+                : heartChange.delta > 0
+                  ? 'heart-gain'
+                  : ''
+            }`}
             aria-label={`剩余 ${hud.lives} 条生命`}
             aria-live="assertive"
             aria-atomic="true"
             data-damage-revision={hud.damageRevision}
+            data-life-delta={heartChange.delta}
           >
             {Array.from({ length: hud.maxLives }).map((_, index) => (
               <span key={index} className={index < hud.lives ? 'heart full' : 'heart'}>

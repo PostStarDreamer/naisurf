@@ -153,6 +153,59 @@ svg {
   gap: 10px;
 }
 
+.header-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 2px solid rgba(74, 57, 43, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 253, 245, 0.72);
+  color: var(--brown);
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.header-tool:hover {
+  border-color: var(--brown);
+  background: var(--white);
+}
+
+.header-tool svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.header-tool.music-blocked {
+  color: #8e4d10;
+  background: #fff0b8;
+  animation: music-nudge 1.8s ease-in-out infinite;
+}
+
+.header-tool.music-playing {
+  color: var(--sea-deep);
+  background: rgba(116, 217, 196, 0.22);
+}
+
+.tip-tool {
+  border-color: #9e7625;
+  background: var(--butter);
+  box-shadow: 0 3px 0 rgba(126, 86, 27, 0.2);
+}
+
+@keyframes music-nudge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226, 167, 48, 0.08); }
+  50% { box-shadow: 0 0 0 5px rgba(226, 167, 48, 0.2); }
+}
+
 .coin-counter {
   display: flex;
   align-items: center;
@@ -1411,6 +1464,83 @@ svg {
   text-align: center;
 }
 
+.donation-card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.donation-card img {
+  width: min(100%, 520px);
+  max-height: min(68vh, 620px);
+  border: 2px solid var(--brown);
+  border-radius: 14px;
+  object-fit: contain;
+  image-rendering: auto;
+  background: #fff;
+}
+
+.donation-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.feedback-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 20px;
+  color: var(--brown);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.feedback-field textarea {
+  width: 100%;
+  resize: vertical;
+  border: 2px solid var(--brown);
+  border-radius: 10px;
+  padding: 12px 13px;
+  color: var(--ink);
+  background: #fffaf0;
+  font: 13px/1.7 "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+.feedback-field textarea:focus {
+  outline: 3px solid rgba(44, 166, 162, 0.45);
+  outline-offset: 2px;
+}
+
+.feedback-field small {
+  color: var(--ink-soft);
+  font-size: 9px;
+  text-align: right;
+}
+
+.feedback-submit {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.feedback-status {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.feedback-status.success {
+  color: #1d665b;
+  background: rgba(116, 217, 196, 0.2);
+}
+
+.feedback-status.failed {
+  color: var(--coral-deep);
+  background: rgba(255, 118, 91, 0.14);
+}
+
 .setting-group {
   display: grid;
   gap: 2px;
@@ -1727,16 +1857,25 @@ svg {
   position: fixed;
   inset: 0;
   z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    max(18px, env(safe-area-inset-top))
+    20px
+    max(32px, env(safe-area-inset-bottom));
   background: rgba(23, 63, 65, 0.72);
   backdrop-filter: blur(7px);
 }
 
 .result-card {
   position: relative;
+  flex: 0 0 auto;
   width: min(100%, 500px);
+  margin: clamp(18px, 6vh, 64px) auto 0;
   padding: 38px;
   border: 3px solid var(--brown);
   border-radius: 19px;
@@ -2436,6 +2575,22 @@ svg {
     display: none;
   }
 
+  .header-actions {
+    gap: 6px;
+  }
+
+  .header-tool {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .header-tool .action-label {
+    display: none;
+  }
+
   .hero-section {
     grid-template-columns: 1fr;
     min-height: auto;
@@ -2539,6 +2694,22 @@ svg {
 }
 
 @media (max-width: 580px) {
+  .brand-word,
+  .brand-dot {
+    display: none;
+  }
+
+  .header-tool {
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
+  }
+
+  .header-tool svg {
+    width: 17px;
+    height: 17px;
+  }
+
   .hero-copy h1 {
     letter-spacing: -0.07em;
   }
@@ -2783,6 +2954,34 @@ svg {
     font-size: 14px;
   }
 
+  .hearts.heart-loss {
+    animation: mobile-heart-loss 260ms ease-out;
+  }
+
+  .hearts.heart-gain {
+    animation: mobile-heart-gain 420ms ease-out;
+  }
+
+  .hearts.heart-gain .heart.full {
+    animation: mobile-heart-pop 420ms ease-out both;
+  }
+
+  .hearts.heart-gain .heart.full:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  .hearts.heart-gain .heart.full:nth-child(3) {
+    animation-delay: 80ms;
+  }
+
+  .hearts.heart-gain .heart.full:nth-child(4) {
+    animation-delay: 120ms;
+  }
+
+  .hearts.heart-gain .heart.full:nth-child(5) {
+    animation-delay: 160ms;
+  }
+
   .hud-chip {
     min-height: 25px;
     padding: 3px 6px;
@@ -2798,7 +2997,15 @@ svg {
   }
 
   .result-card {
+    margin-top: 0;
     padding: 31px 20px;
+  }
+
+  .result-layer {
+    padding:
+      max(8px, env(safe-area-inset-top))
+      10px
+      max(76px, calc(env(safe-area-inset-bottom) + 64px));
   }
 
   .result-card h2 {
@@ -2828,6 +3035,24 @@ svg {
   .revive-secondary-actions {
     grid-template-columns: 1fr;
   }
+}
+
+@keyframes mobile-heart-loss {
+  0% { transform: translateX(0) scale(1); }
+  30% { transform: translateX(-3px) scale(0.92); }
+  55% { transform: translateX(3px) scale(1.12); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes mobile-heart-gain {
+  0%, 100% { filter: none; }
+  45% { filter: drop-shadow(0 0 5px rgba(255, 218, 92, 0.9)); }
+}
+
+@keyframes mobile-heart-pop {
+  0% { transform: scale(0.55); opacity: 0.35; }
+  55% { transform: scale(1.28); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

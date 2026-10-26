@@ -5,6 +5,7 @@ import type {
   GameInput,
   GameSnapshot,
   GameState,
+  InputProfile,
   MotionState,
   RunResult,
   WalletTransaction,
@@ -25,6 +26,7 @@ export const SAFE_CORRIDOR_HALF = SAFE_CORRIDOR_WIDTH / 2
 export const MIN_HAZARD_REACTION_SECONDS = 1.05
 export const MONSTER_CHASE_START_GAP = 30
 export const MONSTER_ESCAPE_GAP = 72
+export const TOUCH_HAZARD_INTERVAL_MULTIPLIER = 1.12
 export const MAX_REVIVES = 3
 export const REVIVE_BASE_COST = 100
 
@@ -418,9 +420,19 @@ function obstacleDimensions(kind: WorldObject['kind']): { width: number; height:
 export function planHazardRow(
   rng: () => number,
   previousCenter: number,
-  difficulty: Pick<DifficultyDefinition, 'spacing' | 'hazardWeights'>
+  difficulty: Pick<DifficultyDefinition, 'spacing' | 'hazardWeights'>,
+  inputProfile: InputProfile = 'desktop'
 ): HazardRowPlan {
-  const { spacing, hazardWeights } = difficulty
+  const { spacing } = difficulty
+  const hazardWeights =
+    inputProfile === 'touch' && difficulty.hazardWeights[3] > 0
+      ? ([
+          difficulty.hazardWeights[0],
+          difficulty.hazardWeights[1],
+          difficulty.hazardWeights[2] + difficulty.hazardWeights[3] * 0.5,
+          difficulty.hazardWeights[3] * 0.5
+        ] as [number, number, number, number])
+      : difficulty.hazardWeights
   const shiftLimit = 0.7
   const desiredCenter = previousCenter + randomBetween(rng, -shiftLimit, shiftLimit)
   const safeCenter = Math.max(-0.52, Math.min(0.52, desiredCenter))
@@ -531,7 +543,12 @@ export function planHazardRow(
 
 function spawnHazardRow(state: GameState): void {
   const difficulty = getDifficulty(state.config.difficulty)
-  const plan = planHazardRow(state.rng, state.safeCenter, difficulty)
+  const plan = planHazardRow(
+    state.rng,
+    state.safeCenter,
+    difficulty,
+    state.config.inputProfile
+  )
   state.safeCenter = plan.safeCenter
 
   for (const hazard of plan.hazards) {
@@ -552,12 +569,17 @@ function spawnHazardRow(state: GameState): void {
     )
   }
 
-  const interval = Math.max(
+  const baseInterval = Math.max(
     Math.max(MIN_HAZARD_REACTION_SECONDS, difficulty.rowWindow),
     1.9 *
       difficulty.spacing *
       (1 - Math.min(0.18, (state.elapsed / 120) * 0.18))
   )
+  const interval =
+    baseInterval *
+    (state.config.inputProfile === 'touch'
+      ? TOUCH_HAZARD_INTERVAL_MULTIPLIER
+      : 1)
   state.nextHazardRowAt = state.elapsed + interval
 }
 

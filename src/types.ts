@@ -4,6 +4,7 @@ export type CharacterId = 'egg' | 'mouse' | 'chicken' | 'dog' | 'frog'
 export type MonsterState = 'lurking' | 'chasing' | 'recoiling' | 'escaped' | 'captured'
 export type NetTrapState = 'idle' | 'armed' | 'snapped' | 'spent'
 export type Screen = 'home' | 'game'
+export type InputProfile = 'desktop' | 'touch'
 export type MotionState = 'cruise' | 'accelerating' | 'braking' | 'boosting'
 export type DamageKind = 'obstacle' | 'monster' | null
 export type RunPhase = 'loading' | 'ready' | 'countdown' | 'playing' | 'downed' | 'ended'
@@ -114,6 +115,7 @@ export interface GameConfig {
   mode: GameMode
   difficulty: Difficulty
   character: CharacterId
+  inputProfile: InputProfile
   seed: number
   runId: string
   reducedSpeed?: boolean

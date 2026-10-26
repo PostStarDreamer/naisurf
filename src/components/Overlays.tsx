@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { submitFeedback } from '../feedback'
 import {
   CHARACTERS,
   MODES,
@@ -326,6 +327,93 @@ export function TutorialModal({
         <button className="primary-button" onClick={onStart}>记住了，去冲浪</button>
         <button className="text-button muted" onClick={onClose}>先在岸边看看</button>
       </div>
+    </Modal>
+  )
+}
+
+export function DonationModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal onClose={onClose} titleId="donation-title">
+      <div className="modal-heading">
+        <div>
+          <span className="tiny-label">SUPPORT THE WAVE</span>
+          <h2 id="donation-title">请 StarDreamer 喝一杯</h2>
+        </div>
+      </div>
+      <div className="donation-card">
+        <img
+          src={`${import.meta.env.BASE_URL}assets/support/star-dreamer-tip.jpg`}
+          alt="StarDreamer 的打赏码"
+        />
+        <p>完全自愿，不影响游戏内容、成绩或角色解锁。</p>
+      </div>
+    </Modal>
+  )
+}
+
+export function FeedbackModal({ onClose }: { onClose: () => void }) {
+  const [content, setContent] = useState('')
+  const [sending, setSending] = useState(false)
+  const [message, setMessage] = useState('')
+  const [failed, setFailed] = useState(false)
+  const valid = content.trim().length >= 2 && content.trim().length <= 500
+
+  const submit = async () => {
+    if (!valid || sending) return
+    setSending(true)
+    setFailed(false)
+    setMessage('')
+    try {
+      await submitFeedback(content)
+      setContent('')
+      setMessage('已经投进本机反馈信箱，谢谢你的认真体验。')
+    } catch (error) {
+      setFailed(true)
+      setMessage(error instanceof Error ? error.message : '本机反馈服务暂时没有响应。')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Modal onClose={onClose} titleId="feedback-title">
+      <div className="modal-heading">
+        <div>
+          <span className="tiny-label">LOCAL FEEDBACK</span>
+          <h2 id="feedback-title">给这朵浪写封信</h2>
+          <p>反馈只保存到当前电脑，不会上传到公开服务器。</p>
+        </div>
+      </div>
+      <label className="feedback-field">
+        <span>反馈内容</span>
+        <textarea
+          value={content}
+          maxLength={500}
+          rows={7}
+          placeholder="哪里好玩、哪里卡手、最想改什么……"
+          onChange={(event) => {
+            setContent(event.target.value)
+            setMessage('')
+            setFailed(false)
+          }}
+        />
+        <small>{content.trim().length} / 500</small>
+      </label>
+      <button
+        className="primary-button feedback-submit"
+        disabled={!valid || sending}
+        onClick={submit}
+      >
+        {sending ? '正在投递…' : '投进反馈信箱'}
+      </button>
+      {message && (
+        <p
+          className={`feedback-status ${failed ? 'failed' : 'success'}`}
+          role={failed ? 'alert' : 'status'}
+        >
+          {message}
+        </p>
+      )}
     </Modal>
   )
 }

@@ -238,8 +238,8 @@ describe('direct attachment art assets', () => {
           const green = png.rgba[offset + 1]
           const blue = png.rgba[offset + 2]
           if (
-            Math.min(red, green, blue) >= 196 &&
-            Math.max(red, green, blue) - Math.min(red, green, blue) <= 42
+            Math.min(red, green, blue) >= 160 &&
+            Math.max(red, green, blue) - Math.min(red, green, blue) <= 60
           ) {
             contaminated += 1
           }

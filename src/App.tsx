@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AudioEngine } from './audio'
+import { AudioEngine, type HomeMusicStatus } from './audio'
 import { GameScreen } from './components/GameScreen'
 import {
+  DonationModal,
+  FeedbackModal,
   ModeGuide,
   ResultOverlay,
   SettingsModal,
@@ -30,12 +32,14 @@ import {
   resetRecords,
   tryUnlockNext
 } from './storage'
+import { checkFeedbackBridge } from './feedback'
 import type {
   CharacterId,
   Difficulty,
   GameConfig,
   GameMode,
   GameSettings,
+  InputProfile,
   RunResult,
   SaveData,
   Screen,
@@ -66,6 +70,32 @@ function SettingsIcon() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 8.2A3.8 3.8 0 1 0 12 15.8 3.8 3.8 0 0 0 12 8.2Z" />
       <path d="m19.2 13.6 1.4 1.1-1.8 3.1-1.8-.7a7.7 7.7 0 0 1-1.5.9l-.3 1.9h-3.6l-.3-1.9a7.7 7.7 0 0 1-1.5-.9l-1.8.7-1.8-3.1 1.4-1.1a8 8 0 0 1 0-1.8L5.2 10.7l1.8-3.1 1.8.7a7.7 7.7 0 0 1 1.5-.9L10.6 5h3.6l.3 1.9a7.7 7.7 0 0 1 1.5.9l1.8-.7 1.8 3.1-1.4 1.1a8 8 0 0 1 0 1.8Z" />
+    </svg>
+  )
+}
+
+function MusicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 17V6l9-2v11M9 17a4 3 0 1 1-4-3 4 3 0 0 1 4 3Zm9-2a4 3 0 1 1-4-3 4 3 0 0 1 4 3Z" />
+    </svg>
+  )
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  )
+}
+
+function GiftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 10h16v10H4zM3 7h18v3H3zM12 7v13" />
+      <path d="M12 7c-2.8 0-5-1-5-2.5S9.2 2 12 7Zm0 0c2.8 0 5-1 5-2.5S14.8 2 12 7Z" />
     </svg>
   )
 }
@@ -109,6 +139,11 @@ function ArrowIcon() {
   )
 }
 
+function detectInputProfile(): InputProfile {
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  return coarsePointer || navigator.maxTouchPoints > 0 ? 'touch' : 'desktop'
+}
+
 interface CompletedRun extends RunResult {
   newRecord: boolean
   absoluteBest: number
@@ -123,6 +158,10 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [donationOpen, setDonationOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedbackAvailable, setFeedbackAvailable] = useState(false)
+  const [musicStatus, setMusicStatus] = useState<HomeMusicStatus>('off')
   const [pendingStart, setPendingStart] = useState(false)
   const [runId, setRunId] = useState(0)
   const [result, setResult] = useState<CompletedRun | null>(null)
@@ -130,7 +169,7 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
   const audioRef = useRef<AudioEngine | null>(null)
-  const audioActivatedRef = useRef(false)
+  const musicPausedByUserRef = useRef(false)
   const saveRef = useRef(save)
   saveRef.current = save
 
@@ -147,6 +186,12 @@ export function App() {
     : null
   const highest = save.records[recordKey(mode, difficulty)] ?? 0
   const totalUnlocked = save.unlocked.length
+  const musicLabel =
+    musicStatus === 'playing'
+      ? '音乐循环中'
+      : musicStatus === 'blocked'
+        ? '开启音乐'
+        : '播放音乐'
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -173,26 +218,50 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    const activateAudio = () => {
-      audioActivatedRef.current = true
-      void audio.startHomeMusic()
-    }
-    window.addEventListener('pointerdown', activateAudio, { once: true })
-    window.addEventListener('keydown', activateAudio, { once: true })
-    return () => {
-      window.removeEventListener('pointerdown', activateAudio)
-      window.removeEventListener('keydown', activateAudio)
-    }
+    audio.setHomeMusicStatusListener(setMusicStatus)
+    void audio.startHomeMusic()
   }, [audio])
 
   useEffect(() => {
-    if (!audioActivatedRef.current) return
+    const retryMusic = () => {
+      if (
+        !musicPausedByUserRef.current &&
+        screen === 'home' &&
+        audio.getHomeMusicStatus() !== 'playing'
+      ) {
+        void audio.startHomeMusic()
+      }
+    }
+    window.addEventListener('pointerdown', retryMusic)
+    window.addEventListener('keydown', retryMusic)
+    return () => {
+      window.removeEventListener('pointerdown', retryMusic)
+      window.removeEventListener('keydown', retryMusic)
+    }
+  }, [audio, screen])
+
+  useEffect(() => {
     if (screen === 'game') {
       void audio.startGameMusic()
-    } else {
+    } else if (!musicPausedByUserRef.current) {
       void audio.startHomeMusic()
     }
   }, [audio, screen])
+
+  useEffect(() => {
+    let disposed = false
+    const probe = async () => {
+      const available = await checkFeedbackBridge()
+      if (!disposed) setFeedbackAvailable(available)
+    }
+    const probeOnFocus = () => void probe()
+    void probe()
+    window.addEventListener('focus', probeOnFocus)
+    return () => {
+      disposed = true
+      window.removeEventListener('focus', probeOnFocus)
+    }
+  }, [])
 
   useEffect(() => {
     const updatePageAudio = () => audio.setPageMuted(document.hidden)
@@ -304,6 +373,16 @@ export function App() {
     audio.updateSettings(settings)
   }
 
+  const toggleMusic = () => {
+    if (musicStatus === 'playing') {
+      musicPausedByUserRef.current = true
+      audio.pauseHomeMusic()
+      return
+    }
+    musicPausedByUserRef.current = false
+    void audio.startHomeMusic()
+  }
+
   const handleResetRecords = () => {
     setSave((current) => resetRecords(current))
     showToast('最高成绩已清空。')
@@ -336,6 +415,7 @@ export function App() {
         mode,
         difficulty,
         character: save.character,
+        inputProfile: detectInputProfile(),
         seed,
         runId: `${seed.toString(36)}-${runId.toString(36)}`,
         reducedSpeed: save.settings.reducedSpeed
@@ -388,6 +468,39 @@ export function App() {
           <BrandMark />
         </button>
         <div className="header-actions">
+          <button
+            className={`header-tool music-tool music-${musicStatus}`}
+            onClick={toggleMusic}
+            aria-label={musicLabel}
+            aria-pressed={musicStatus === 'playing'}
+            title={musicLabel}
+          >
+            <MusicIcon />
+            <span className="action-label">{musicLabel}</span>
+          </button>
+          {feedbackAvailable && (
+            <button
+              className="header-tool"
+              onClick={() => setFeedbackOpen(true)}
+              aria-label="反馈信箱"
+              title="反馈信箱"
+            >
+              <MailIcon />
+              <span className="action-label">反馈</span>
+            </button>
+          )}
+          <button
+            className="header-tool tip-tool"
+            onClick={() => {
+              setDonationOpen(true)
+              void audio.sfx('click')
+            }}
+            aria-label="打赏"
+            title="打赏"
+          >
+            <GiftIcon />
+            <span className="action-label">打赏</span>
+          </button>
           <button className="coin-counter" onClick={() => setShopOpen(true)}>
             <MilkIcon />
             <span className="pixel-font">{save.milkCoins}</span>
@@ -632,7 +745,7 @@ export function App() {
         <div>
           {installPrompt && <button onClick={installPwa}>安装到设备</button>}
           <button onClick={() => setGuideOpen(true)}>玩法说明</button>
-          <span>v1.4</span>
+          <span>v1.5</span>
         </div>
       </footer>
 
@@ -655,6 +768,12 @@ export function App() {
       )}
       {tutorialOpen && (
         <TutorialModal onStart={beginAfterTutorial} onClose={closeTutorial} />
+      )}
+      {donationOpen && (
+        <DonationModal onClose={() => setDonationOpen(false)} />
+      )}
+      {feedbackOpen && feedbackAvailable && (
+        <FeedbackModal onClose={() => setFeedbackOpen(false)} />
       )}
       <ModeGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
 

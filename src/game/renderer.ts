@@ -1,6 +1,7 @@
 import { CHARACTERS } from '../data'
 import type { CharacterId, GameSettings, GameState, WorldObject } from '../types'
 import { VIEW_DISTANCE } from './engine'
+import { OCEAN_WAVE_CYCLES, getWaveFlowPhase } from './visual'
 
 let WIDTH = 640
 let HEIGHT = 360
@@ -131,7 +132,6 @@ function drawBackground(
   state: GameState,
   reducedMotion: boolean
 ): void {
-  const motionDistance = reducedMotion ? 0 : state.distance
   const motionElapsed = reducedMotion ? 0 : state.elapsed
   const gradient = ctx.createLinearGradient(0, 0, 0, HORIZON + 38)
   gradient.addColorStop(0, '#d8aaa4')
@@ -159,19 +159,19 @@ function drawBackground(
   ctx.arc(sunX, sunY, sunSize, 0, Math.PI * 2)
   ctx.fill()
 
-  const drift = motionDistance * (0.55 + state.speed * 0.012)
+  const drift = motionElapsed * 1.8
   drawCloud(ctx, ((WIDTH * 0.1 - drift * 0.08) % (WIDTH + 210)) - 120, HORIZON * 0.35, 1.05)
   drawCloud(ctx, ((WIDTH * 0.52 - drift * 0.05) % (WIDTH + 260)) - 80, HORIZON * 0.7, 0.72)
   drawCloud(ctx, ((WIDTH * 0.9 - drift * 0.12) % (WIDTH + 230)) - 90, HORIZON * 0.18, 0.54)
 
   ctx.fillStyle = 'rgba(255, 239, 201, .38)'
   for (let index = 0; index < 8; index++) {
-    const x = (sunX - 95 + ((motionDistance * 0.12 + index * 31) % 190))
+    const x = (sunX - 95 + ((motionElapsed * 6 + index * 31) % 190))
     ctx.fillRect(x, sunY + sunSize * 0.82 + (index % 3) * 5, 46 + (index % 2) * 24, 3)
   }
 
   ctx.save()
-  ctx.translate(Math.sin(motionDistance * 0.002) * 9, 0)
+  ctx.translate(Math.sin(motionElapsed * 0.06) * 2.5, 0)
   drawIsland(ctx, WIDTH * 0.12, HORIZON + 1, 1.08)
   drawIsland(ctx, WIDTH * 0.48, HORIZON + 2, 0.7)
   drawLighthouse(ctx, WIDTH * 0.88, HORIZON + 1, 0.9)
@@ -187,7 +187,7 @@ function drawBackground(
   ctx.fillStyle = sea
   ctx.fillRect(0, HORIZON, WIDTH, HEIGHT - HORIZON)
 
-  drawWaveBands(ctx, motionDistance, motionElapsed, state.speed)
+  drawWaveBands(ctx, motionElapsed)
 
   const reflection = ctx.createLinearGradient(sunX, HORIZON, sunX, HEIGHT)
   reflection.addColorStop(0, 'rgba(255, 214, 154, .48)')
@@ -385,76 +385,72 @@ function drawFestivalFlags(
 
 function drawWaveBands(
   ctx: CanvasRenderingContext2D,
-  distance: number,
-  elapsed: number,
-  speed: number
+  elapsed: number
 ): void {
   const seaHeight = HEIGHT - HORIZON
   const layers = [
-    { alpha: 0.15, flow: 0.006, color: '#b3c4b8', width: 0.75 },
-    { alpha: 0.2, flow: 0.009, color: '#8fb0ae', width: 1.05 },
-    { alpha: 0.27, flow: 0.013, color: '#d3ded0', width: 1.4 }
+    { alpha: 0.12, color: '#b3c4b8', width: 0.75 },
+    { alpha: 0.17, color: '#8fb0ae', width: 1.05 },
+    { alpha: 0.23, color: '#d3ded0', width: 1.35 }
   ]
   ctx.save()
+  ctx.lineCap = 'round'
   for (let layer = 0; layer < layers.length; layer += 1) {
     const spec = layers[layer]
     ctx.strokeStyle = spec.color
-    ctx.globalAlpha = spec.alpha
-    ctx.lineWidth = spec.width
-    const lineCount = WIDTH < 520 ? 24 : 38
+    const lineCount = WIDTH < 520 ? 4 : 6
     for (let index = 0; index < lineCount; index += 1) {
       const progress =
-        (index / lineCount +
-          distance * spec.flow +
-          layer * 0.13 +
-          elapsed * 0.018 * (spec.flow / 0.009)) %
+        (getWaveFlowPhase(elapsed, layer) +
+          index / lineCount +
+          layer * (OCEAN_WAVE_CYCLES[layer] ?? 0)) %
         1
-      const t = progress ** 1.12
+      const t = progress ** 1.28
       const y = HORIZON + 7 + seaHeight * t
-      const lane = (((index * 0.618 + layer * 0.217) % 1) * 2 - 1)
-      const spread = WIDTH * (0.055 + t * 0.49)
-      const sway =
-        Math.sin(elapsed * (1.1 + t) + index * 1.37 + layer) * (1 + t * 7)
-      const x = WIDTH / 2 + lane * spread + sway
-      const length = 4 + t * (28 + layer * 8)
-      const curve = Math.sin(index * 1.9 + elapsed * 1.4 + layer) * (1 + t * 5)
+      const amplitude = 1 + t * (4.5 + layer * 1.1)
+      const phase = index * 1.17 + layer * 1.9
+      const segments = WIDTH < 520 ? 9 : 13
+      ctx.globalAlpha = spec.alpha * (0.55 + t * 0.45)
+      ctx.lineWidth = spec.width * (0.7 + t * 1.15)
       ctx.beginPath()
-      ctx.moveTo(x, y)
-      ctx.bezierCurveTo(
-        x + curve * 0.25,
-        y + length * 0.28,
-        x - curve * 0.2,
-        y + length * 0.72,
-        x + curve,
-        y + length
-      )
+      for (let segment = 0; segment <= segments; segment += 1) {
+        const x = (segment / segments) * WIDTH
+        const normalized = x / WIDTH
+        const crest =
+          y +
+          Math.sin(normalized * Math.PI * (1.8 + layer * 0.28) + phase) *
+            amplitude +
+          Math.sin(normalized * Math.PI * 4.2 - phase * 0.7) *
+            amplitude *
+            0.18
+        if (segment === 0) ctx.moveTo(x, crest)
+        else ctx.lineTo(x, crest)
+      }
       ctx.stroke()
 
-      if (t > 0.2) {
-        ctx.globalAlpha = spec.alpha * (0.3 + t * 0.45)
+      if (t > 0.24) {
+        const foamX =
+          WIDTH * (0.2 + ((index * 0.31 + layer * 0.17) % 0.58))
+        const foamY =
+          y +
+          Math.sin((foamX / WIDTH) * Math.PI * (1.8 + layer * 0.28) + phase) *
+            amplitude
+        const foamWidth = 7 + t * 24
+        ctx.globalAlpha = spec.alpha * (0.55 + t * 0.35)
+        ctx.lineWidth = Math.max(1, spec.width * (0.65 + t * 0.8))
         ctx.beginPath()
-        ctx.moveTo(x - 4 - t * 10, y + length * 0.34)
+        ctx.moveTo(foamX - foamWidth * 0.5, foamY + 1)
         ctx.quadraticCurveTo(
-          x - 8 - t * 16,
-          y + length * 0.42,
-          x - 5 - t * 8,
-          y + length * 0.5
+          foamX,
+          foamY - 2 - t * 2,
+          foamX + foamWidth * 0.5,
+          foamY + 1
         )
         ctx.stroke()
-        ctx.globalAlpha = spec.alpha
       }
     }
   }
   ctx.globalAlpha = 1
-  ctx.fillStyle = 'rgba(30, 64, 70, .2)'
-  const grainStep = WIDTH < 520 ? 23 : 31
-  for (let y = HORIZON + 18; y < HEIGHT; y += grainStep) {
-    for (let x = (y * 7) % 29; x < WIDTH; x += grainStep * 2) {
-      const drift =
-        (distance * 2.8 + speed * elapsed * 0.35 + x + y) % grainStep
-      ctx.fillRect(x + drift * 0.3, y, 2, 1)
-    }
-  }
   ctx.restore()
 }
 

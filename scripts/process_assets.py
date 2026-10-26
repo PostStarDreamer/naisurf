@@ -33,7 +33,7 @@ FILES = [
 
 def is_light_edge_pixel(rgb: tuple[int, int, int]) -> bool:
     red, green, blue = rgb
-    return min(rgb) >= 196 and max(rgb) - min(rgb) <= 42
+    return min(rgb) >= 160 and max(rgb) - min(rgb) <= 60
 
 
 def clean_boundary_halo(image: Image.Image) -> Image.Image:

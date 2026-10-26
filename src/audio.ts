@@ -18,6 +18,7 @@ type SfxName =
   | 'revive'
 
 type MusicScene = 'home' | 'game'
+export type HomeMusicStatus = 'playing' | 'blocked' | 'off'
 
 const HOME_THEME_URL = `${import.meta.env.BASE_URL}audio/ocean-theme.mp3`.replace(
   /([^:]\/)\/+/g,
@@ -37,6 +38,7 @@ export class AudioEngine {
   private homeBuffer?: AudioBuffer
   private homeSource?: AudioBufferSourceNode
   private homeLoad?: Promise<void>
+  private homeAttempt?: Promise<HomeMusicStatus>
   private noiseBuffer?: AudioBuffer
   private scene: MusicScene | 'idle' = 'idle'
   private pageMuted = false
@@ -45,13 +47,15 @@ export class AudioEngine {
   private pace = 1
   private chaseIntensity = 0
   private motionState: MotionState = 'cruise'
+  private homeMusicStatus: HomeMusicStatus = 'off'
+  private homeMusicStatusListener?: (status: HomeMusicStatus) => void
   private settings: Pick<GameSettings, 'musicVolume' | 'sfxVolume'>
 
   constructor(settings: Pick<GameSettings, 'musicVolume' | 'sfxVolume'>) {
     this.settings = settings
   }
 
-  async unlock(): Promise<void> {
+  private createContext(): void {
     if (!this.context) {
       const Context =
         window.AudioContext ||
@@ -72,9 +76,31 @@ export class AudioEngine {
       this.masterGain.connect(this.context.destination)
       this.applyVolumes()
     }
-    if (this.context.state === 'suspended') {
-      await this.context.resume()
+  }
+
+  async unlock(): Promise<void> {
+    this.createContext()
+    const context = this.context
+    if (!context) throw new Error('音频上下文不可用')
+    if (context.state === 'suspended') {
+      await context.resume()
     }
+  }
+
+  setHomeMusicStatusListener(
+    listener: (status: HomeMusicStatus) => void
+  ): void {
+    this.homeMusicStatusListener = listener
+    listener(this.homeMusicStatus)
+  }
+
+  getHomeMusicStatus(): HomeMusicStatus {
+    return this.homeMusicStatus
+  }
+
+  private setHomeMusicStatus(status: HomeMusicStatus): void {
+    this.homeMusicStatus = status
+    this.homeMusicStatusListener?.(status)
   }
 
   updateSettings(settings: Pick<GameSettings, 'musicVolume' | 'sfxVolume'>): void {
@@ -111,6 +137,25 @@ export class AudioEngine {
     await this.homeLoad
   }
 
+  private async resumeContextBriefly(timeoutMs = 650): Promise<boolean> {
+    this.createContext()
+    if (!this.context) return false
+    if (this.context.state === 'running') return true
+    try {
+      await Promise.race([
+        this.context.resume(),
+        new Promise<void>((resolve) => window.setTimeout(resolve, timeoutMs))
+      ])
+    } catch {
+      return false
+    }
+    return this.contextIsRunning()
+  }
+
+  private contextIsRunning(): boolean {
+    return this.context?.state === 'running'
+  }
+
   private ensureHomeSource(): void {
     if (!this.context || !this.homeGain || !this.homeBuffer || this.homeSource) return
     const source = this.context.createBufferSource()
@@ -125,18 +170,41 @@ export class AudioEngine {
     return this.scene === 'game'
   }
 
-  async startHomeMusic(): Promise<void> {
-    if (this.scene !== 'game') this.scene = 'home'
-    await this.unlock()
-    if (this.sceneIsGame()) return
-    try {
-      await this.loadHomeTheme()
-    } catch {
-      return
-    }
-    if (this.sceneIsGame()) return
-    this.ensureHomeSource()
-    this.crossfadeTo('home')
+  async startHomeMusic(): Promise<HomeMusicStatus> {
+    if (this.homeAttempt) return this.homeAttempt
+    this.homeAttempt = (async () => {
+      if (this.scene !== 'game') this.scene = 'home'
+      if (!(await this.resumeContextBriefly())) {
+        this.setHomeMusicStatus('blocked')
+        void this.loadHomeTheme().catch(() => undefined)
+        return 'blocked' as const
+      }
+      if (this.sceneIsGame()) return this.homeMusicStatus
+      try {
+        await this.loadHomeTheme()
+      } catch {
+        this.setHomeMusicStatus('blocked')
+        return 'blocked' as const
+      }
+      if (this.sceneIsGame()) return this.homeMusicStatus
+      this.ensureHomeSource()
+      this.crossfadeTo('home')
+      this.setHomeMusicStatus('playing')
+      return 'playing' as const
+    })().finally(() => {
+      this.homeAttempt = undefined
+    })
+    return this.homeAttempt
+  }
+
+  pauseHomeMusic(): void {
+    if (!this.context || !this.homeGain) return
+    this.scene = 'idle'
+    const now = this.context.currentTime
+    this.homeGain.gain.cancelScheduledValues(now)
+    this.homeGain.gain.setValueAtTime(this.homeGain.gain.value, now)
+    this.homeGain.gain.linearRampToValueAtTime(0, now + 0.3)
+    this.setHomeMusicStatus('off')
   }
 
   async startGameMusic(): Promise<void> {
@@ -172,6 +240,7 @@ export class AudioEngine {
     this.musicTimer = undefined
     this.scene = 'idle'
     this.crossfadeTo('home')
+    this.setHomeMusicStatus('off')
   }
 
   dispose(): void {

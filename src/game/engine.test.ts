@@ -28,6 +28,7 @@ import {
   PLAYER_ZONE,
   REVIVE_BASE_COST,
   SAFE_CORRIDOR_WIDTH,
+  TOUCH_HAZARD_INTERVAL_MULTIPLIER,
   beginGamePlay,
   createRunGame,
   endDownedRun,
@@ -44,6 +45,7 @@ const config: GameConfig = {
   mode: 'endless',
   difficulty: 'medium',
   character: 'egg',
+  inputProfile: 'desktop',
   seed: 42,
   runId: 'test-run'
 }
@@ -555,13 +557,53 @@ describe('safe obstacle generation', () => {
 
   it('never schedules hazard rows closer than the minimum reaction window', () => {
     for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
-      const game = quietRun({ difficulty })
-      game.nextHazardRowAt = 0
-      updateGame(game, idleInput, 1 / 60)
-      expect(game.nextHazardRowAt - game.elapsed).toBeGreaterThanOrEqual(
+      const desktop = quietRun({ difficulty, inputProfile: 'desktop' })
+      const touch = quietRun({ difficulty, inputProfile: 'touch' })
+      desktop.nextHazardRowAt = 0
+      touch.nextHazardRowAt = 0
+      updateGame(desktop, idleInput, 1 / 60)
+      updateGame(touch, idleInput, 1 / 60)
+      const desktopInterval = desktop.nextHazardRowAt - desktop.elapsed
+      const touchInterval = touch.nextHazardRowAt - touch.elapsed
+      expect(desktopInterval).toBeGreaterThanOrEqual(
         Math.max(MIN_HAZARD_REACTION_SECONDS, getDifficulty(difficulty).rowWindow)
       )
+      expect(touchInterval).toBeCloseTo(
+        desktopInterval * TOUCH_HAZARD_INTERVAL_MULTIPLIER,
+        5
+      )
     }
+  })
+
+  it('keeps four-obstacle rows possible but rarer on touch devices', () => {
+    const countFour = (
+      inputProfile: 'desktop' | 'touch',
+      difficulty: Difficulty
+    ) => {
+      let value = 8128
+      const rng = () => {
+        value = (value * 1664525 + 1013904223) >>> 0
+        return value / 4294967296
+      }
+      let four = 0
+      for (let row = 0; row < 4000; row += 1) {
+        const plan = planHazardRow(
+          rng,
+          0,
+          getDifficulty(difficulty),
+          inputProfile
+        )
+        four += plan.hazards.length === 4 ? 1 : 0
+      }
+      return four
+    }
+
+    expect(countFour('touch', 'hell')).toBeLessThan(
+      countFour('desktop', 'hell')
+    )
+    expect(countFour('touch', 'hard')).toBeLessThan(
+      countFour('desktop', 'hard')
+    )
   })
 
   it('builds the same fixed time-trial route regardless of non-time-trial seed', () => {
