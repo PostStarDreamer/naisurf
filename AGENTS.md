@@ -176,9 +176,9 @@
 
 ## 待完成
 
-- [ ] GitHub `main` 提交、推送和 Pages 部署。
-- [ ] 公开网址 v1.6 内容、音频、反馈和 PWA 验证。
-- [ ] 部署后补写最终提交、Actions run 和线上验收记录。
+- [x] GitHub `main` 提交、推送和 Pages 部署。
+- [x] 公开网址 v1.6 内容、音频、反馈和 PWA 验证。
+- [x] 部署后补写最终提交、Actions run 和线上验收记录。
 
 ## v1.3 公开部署记录
 
@@ -212,6 +212,18 @@
 - 公开验收无控制台错误或失败请求。
 - 本机任务 `naisurf-feedback-bridge` 持续运行，`naisurf-feedback-export` 下次执行时间为次日 `00:05`。
 - Git 因 v1.4 API 等价提交元数据被判定为非快进，继续使用 GitHub API 等树发布，没有制造合并提交或强制推送。
+
+## v1.6 公开部署记录
+
+- 发布日期：2026-10-26。
+- 本地功能发布提交：`1cb1aeacbcee338977d830cb37423be8fbfbc27d`。
+- GitHub API 发布的等价 `main` 提交：`a6fa15437e0bbcd84a1c51b726e6e0d2fbe21401`；上传后 Git tree 与本地提交完全一致。
+- GitHub Actions run：https://github.com/PostStarDreamer/naisurf/actions/runs/40343953270
+- `build` 与 `deploy` job 均成功；PWA 预缓存 41 项。
+- 公开网址已验证 v1.6 页脚、独立主页音乐持续播放、GitHub `feedback` Issue 预填链接、断网反馈入口和断网进入游戏。
+- `feedback` 标签、Issue 模板和每日 GitHub Issue 导出器已启用；旧 `127.0.0.1:4317` 桥接任务与进程已移除。
+- 当前没有带 `feedback` 标签的 Issue，实际导出确认目标 TXT 与导出状态均未改变。
+- 公开验收无控制台错误或失败请求。
 
 ## 安全与改动边界
 
