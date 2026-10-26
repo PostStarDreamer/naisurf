@@ -17,13 +17,17 @@ export function loadSave(): SaveData {
       : ['egg']
     if (!unlocked.includes('egg')) unlocked.unshift('egg')
 
+    const records = Object.fromEntries(
+      Object.entries(parsed.records ?? {}).filter(([key]) => !key.startsWith('collector:'))
+    )
+
     return {
       ...fallback,
       ...parsed,
       version: 1,
       guideVersion: parsed.guideVersion ?? 0,
       unlocked,
-      records: parsed.records ?? {},
+      records,
       settings: { ...fallback.settings, ...(parsed.settings ?? {}) }
     }
   } catch {

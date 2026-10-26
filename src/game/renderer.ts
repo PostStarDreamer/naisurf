@@ -8,7 +8,6 @@ let HORIZON = 164
 let CANVAS_SCALE = 1
 
 export interface RenderAssets {
-  characters: Partial<Record<CharacterId, HTMLImageElement>>
   surfCharacters: Partial<Record<CharacterId, HTMLImageElement>>
   objects: Partial<Record<WorldObject['kind'], HTMLImageElement>>
   monsterSide?: HTMLImageElement
@@ -34,14 +33,8 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 export async function loadRenderAssets(): Promise<RenderAssets> {
-  const [characterEntries, surfEntries, objectEntries, monsterSide, monsterClosed, monsterMid, monsterOpen, monsterBite, monsterRecoil, net] =
+  const [surfEntries, objectEntries, monsterSide, monsterClosed, monsterMid, monsterOpen, monsterBite, monsterRecoil, net] =
     await Promise.all([
-      Promise.all(
-        CHARACTERS.map(async (character) => {
-          const image = await loadImage(assetUrl(character.image))
-          return [character.id, image] as const
-        })
-      ),
       Promise.all(
         CHARACTERS.map(async (character) => {
           const image = await loadImage(assetUrl(character.surfImage))
@@ -65,16 +58,15 @@ export async function loadRenderAssets(): Promise<RenderAssets> {
           return [kind, image] as const
         })
       ),
-      loadImage(assetUrl('assets/monster-side.svg')),
-      loadImage(assetUrl('assets/monster-closed.svg')),
-      loadImage(assetUrl('assets/monster-mid.svg')),
-      loadImage(assetUrl('assets/monster-open.svg')),
-      loadImage(assetUrl('assets/monster.svg')),
-      loadImage(assetUrl('assets/monster-recoil.svg')),
+      loadImage(assetUrl('assets/monster-side.png')),
+      loadImage(assetUrl('assets/monster-closed.png')),
+      loadImage(assetUrl('assets/monster-mid.png')),
+      loadImage(assetUrl('assets/monster-open.png')),
+      loadImage(assetUrl('assets/monster-bite.png')),
+      loadImage(assetUrl('assets/monster-recoil.png')),
       loadImage(assetUrl('assets/net.svg'))
     ])
   return {
-    characters: Object.fromEntries(characterEntries),
     surfCharacters: Object.fromEntries(surfEntries),
     objects: Object.fromEntries(objectEntries) as Partial<
       Record<WorldObject['kind'], HTMLImageElement>
@@ -123,87 +115,135 @@ function pathPolygon(
   }
 }
 
+function drawImageFit(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  centerX: number,
+  bottom: number,
+  maxWidth: number,
+  maxHeight: number
+): void {
+  const ratio = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight)
+  const width = image.naturalWidth * ratio
+  const height = image.naturalHeight * ratio
+  ctx.drawImage(image, centerX - width / 2, bottom - height, width, height)
+}
+
 function drawBackground(ctx: CanvasRenderingContext2D, state: GameState): void {
-  const gradient = ctx.createLinearGradient(0, 0, 0, HORIZON + 30)
-  gradient.addColorStop(0, '#ffd0a4')
-  gradient.addColorStop(0.55, '#ffedc7')
-  gradient.addColorStop(1, '#a8e5cf')
+  const gradient = ctx.createLinearGradient(0, 0, 0, HORIZON + 38)
+  gradient.addColorStop(0, '#ffa978')
+  gradient.addColorStop(0.42, '#ffc791')
+  gradient.addColorStop(0.75, '#ffe5b4')
+  gradient.addColorStop(1, '#fff1ce')
   ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, WIDTH, HORIZON + 20)
+  ctx.fillRect(0, 0, WIDTH, HORIZON + 38)
 
-  ctx.fillStyle = '#ff9e72'
-  const sunSize = Math.min(WIDTH, HEIGHT) * 0.105
+  const sunSize = Math.min(WIDTH, HEIGHT) * 0.095
+  const sunX = WIDTH * 0.79
+  const sunY = HORIZON * 0.34
+  ctx.fillStyle = 'rgba(255, 236, 154, .2)'
+  for (let index = 1; index <= 3; index++) {
+    ctx.beginPath()
+    ctx.arc(sunX, sunY, sunSize * (1.25 + index * 0.2), 0, Math.PI * 2)
+    ctx.fill()
+  }
+  const sunGradient = ctx.createLinearGradient(sunX, sunY - sunSize, sunX, sunY + sunSize)
+  sunGradient.addColorStop(0, '#ffdc72')
+  sunGradient.addColorStop(0.6, '#ffab72')
+  sunGradient.addColorStop(1, '#ff8c73')
+  ctx.fillStyle = sunGradient
   ctx.beginPath()
-  ctx.arc(WIDTH * 0.82, HEIGHT * 0.19, sunSize, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = 'rgba(255, 248, 208, .24)'
-  ctx.beginPath()
-  ctx.arc(WIDTH * 0.82, HEIGHT * 0.19, sunSize * 1.45, 0, Math.PI * 2)
+  ctx.arc(sunX, sunY, sunSize, 0, Math.PI * 2)
   ctx.fill()
 
-  const drift = (state.distance * 1.8) % (WIDTH + 180)
-  drawCloud(ctx, ((WIDTH * 0.1 - drift * 0.12) % (WIDTH + 180)) - 100, HEIGHT * 0.13, 1)
-  drawCloud(ctx, ((WIDTH * 0.44 - drift * 0.08) % (WIDTH + 260)) - 50, HEIGHT * 0.25, 0.72)
-  drawCloud(ctx, ((WIDTH * 0.84 - drift * 0.16) % (WIDTH + 210)) - 80, HEIGHT * 0.09, 0.52)
+  const drift = state.distance * (0.72 + state.speed * 0.018)
+  drawCloud(ctx, ((WIDTH * 0.1 - drift * 0.08) % (WIDTH + 210)) - 120, HORIZON * 0.35, 1.05)
+  drawCloud(ctx, ((WIDTH * 0.52 - drift * 0.05) % (WIDTH + 260)) - 80, HORIZON * 0.7, 0.72)
+  drawCloud(ctx, ((WIDTH * 0.9 - drift * 0.12) % (WIDTH + 230)) - 90, HORIZON * 0.18, 0.54)
+
+  ctx.fillStyle = 'rgba(255, 250, 218, .42)'
+  for (let index = 0; index < 7; index++) {
+    const x = (sunX - 95 + ((state.distance * 0.12 + index * 31) % 190))
+    ctx.fillRect(x, sunY + sunSize * 0.82 + (index % 3) * 5, 46 + (index % 2) * 24, 3)
+  }
+
+  ctx.save()
+  ctx.translate(Math.sin(state.distance * 0.003) * 12, 0)
+  drawIsland(ctx, WIDTH * 0.11, HORIZON + 2, 1)
+  drawIsland(ctx, WIDTH * 0.58, HORIZON + 3, 0.64)
+  drawLighthouse(ctx, WIDTH * 0.88, HORIZON + 2, 0.92)
+  ctx.restore()
+
+  ctx.strokeStyle = 'rgba(110, 81, 52, .55)'
+  ctx.lineWidth = 1.4
+  ctx.beginPath()
+  ctx.moveTo(WIDTH * 0.03, HORIZON * 0.54)
+  ctx.quadraticCurveTo(WIDTH * 0.5, HORIZON * 0.39, WIDTH * 0.97, HORIZON * 0.57)
+  ctx.stroke()
+  const bannerShift = (state.distance * 0.8) % 38
+  for (let x = -30 + bannerShift; x < WIDTH + 30; x += 38) {
+    const flagY = HORIZON * 0.54 + Math.sin((x / WIDTH) * Math.PI) * -14
+    pathPolygon(
+      ctx,
+      [
+        [x, flagY],
+        [x + 18, flagY + 1],
+        [x + 9, flagY + 13]
+      ],
+      '#ee7659',
+      '#774d39',
+      1
+    )
+  }
 
   const sea = ctx.createLinearGradient(0, HORIZON, 0, HEIGHT)
-  sea.addColorStop(0, '#7dd8c4')
-  sea.addColorStop(0.45, '#3cb8ad')
-  sea.addColorStop(1, '#228f9a')
+  sea.addColorStop(0, '#8be1ca')
+  sea.addColorStop(0.25, '#55c8b9')
+  sea.addColorStop(0.62, '#2ba8a6')
+  sea.addColorStop(1, '#187f91')
   ctx.fillStyle = sea
   ctx.fillRect(0, HORIZON, WIDTH, HEIGHT - HORIZON)
 
-  ctx.fillStyle = '#fff1c5'
-  for (let index = 0; index < 16; index++) {
-    const t = index / 16
-    const y = HORIZON + (HEIGHT - HORIZON) * t ** 1.35
-    const width = 40 + t * 510
-    const offset = Math.sin(state.distance * 0.15 + index) * (8 + t * 28)
-    ctx.globalAlpha = 0.13 + t * 0.2
-    ctx.fillRect(WIDTH / 2 - width / 2 + offset, y, 18 + t * 28, 2 + t * 3)
+  ctx.fillStyle = 'rgba(255, 247, 215, .22)'
+  for (let index = 0; index < 18; index++) {
+    const t = index / 18
+    const y = HORIZON + (HEIGHT - HORIZON) * t ** 1.38
+    const width = 35 + t * 620
+    const offset =
+      Math.sin(state.distance * (0.12 + t * 0.08) + index * 1.7) * (7 + t * 36)
+    ctx.globalAlpha = 0.11 + t * 0.23
+    ctx.fillRect(WIDTH / 2 - width / 2 + offset, y, 20 + t * 34, 1.5 + t * 3)
   }
   ctx.globalAlpha = 1
 
-  const horizonDrift = (state.distance * 2.1) % 100
-  pathPolygon(
-    ctx,
-    [
-      [0, HORIZON + 2],
-      [65 + horizonDrift * 0.2, HORIZON - 22],
-      [128, HORIZON + 4],
-      [155, HORIZON - 6],
-      [0, 170]
-    ],
-    '#48a889'
-  )
-  pathPolygon(
-    ctx,
-    [
-      [WIDTH - 170, HORIZON + 4],
-      [WIDTH - 110, HORIZON - 23],
-      [WIDTH - 35, HORIZON + 2],
-      [WIDTH - 6, HORIZON - 4],
-      [WIDTH - 160, HORIZON + 6]
-    ],
-    '#48a889'
-  )
+  const reflection = ctx.createLinearGradient(sunX, HORIZON, sunX, HEIGHT)
+  reflection.addColorStop(0, 'rgba(255, 228, 143, .34)')
+  reflection.addColorStop(1, 'rgba(255, 246, 189, 0)')
+  ctx.fillStyle = reflection
+  ctx.beginPath()
+  ctx.moveTo(sunX - sunSize * 0.72, HORIZON)
+  ctx.lineTo(sunX + sunSize * 0.72, HORIZON)
+  ctx.lineTo(sunX + sunSize * 1.6, HEIGHT)
+  ctx.lineTo(sunX - sunSize * 1.6, HEIGHT)
+  ctx.closePath()
+  ctx.fill()
 
-  ctx.strokeStyle = 'rgba(255, 249, 213, .7)'
-  ctx.lineWidth = 2
+  ctx.strokeStyle = 'rgba(255, 250, 221, .64)'
+  ctx.lineWidth = 1.5
   for (const side of [-1, 1]) {
     ctx.beginPath()
-    ctx.moveTo(WIDTH / 2 + side * WIDTH * 0.147, HORIZON)
+    ctx.moveTo(WIDTH / 2 + side * WIDTH * 0.13, HORIZON)
     ctx.lineTo(WIDTH / 2 + side * WIDTH * 0.49, HEIGHT)
     ctx.stroke()
   }
 
-  ctx.fillStyle = 'rgba(255, 248, 217, .7)'
-  for (let index = 0; index < 8; index++) {
-    const phase = (state.distance * 2.4 + index * 47) % (WIDTH + 80)
-    const y = HORIZON + 46 + ((index * 37) % Math.max(70, HEIGHT - HORIZON - 60))
-    const x = (phase + index * 93) % (WIDTH + 80)
-    ctx.fillRect(x - WIDTH / 2, y, 25, 3)
-    ctx.fillRect(x - WIDTH / 2 + 12, y + 5, 13, 2)
+  ctx.fillStyle = 'rgba(255, 250, 220, .72)'
+  for (let index = 0; index < 14; index++) {
+    const phase = (state.distance * (1.9 + index * 0.035) + index * 53) % (WIDTH + 120)
+    const y = HORIZON + 34 + ((index * 41) % Math.max(55, HEIGHT - HORIZON - 45))
+    const x = (phase + index * 71) % (WIDTH + 100)
+    ctx.fillRect(x - WIDTH * 0.62, y, 20 + (index % 3) * 9, 2.5)
+    ctx.fillRect(x - WIDTH * 0.62 + 10, y + 5, 11, 1.7)
   }
 }
 
@@ -216,13 +256,107 @@ function drawCloud(
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(scale, scale)
-  ctx.fillStyle = 'rgba(255, 249, 226, .72)'
-  ctx.fillRect(0, 10, 76, 15)
-  ctx.fillRect(8, 4, 21, 14)
-  ctx.fillRect(28, 0, 27, 20)
-  ctx.fillRect(52, 7, 18, 12)
-  ctx.fillStyle = 'rgba(255, 166, 119, .2)'
-  ctx.fillRect(12, 22, 58, 4)
+  ctx.fillStyle = 'rgba(255, 248, 221, .48)'
+  ctx.fillRect(0, 12, 92, 17)
+  ctx.fillRect(8, 5, 28, 17)
+  ctx.fillRect(30, 0, 35, 24)
+  ctx.fillRect(59, 7, 25, 17)
+  ctx.fillStyle = 'rgba(255, 194, 145, .25)'
+  ctx.fillRect(12, 26, 69, 5)
+  ctx.fillStyle = 'rgba(255, 255, 241, .35)'
+  ctx.fillRect(37, 5, 20, 6)
+  ctx.restore()
+}
+
+function drawIsland(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number
+): void {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(scale, scale)
+  pathPolygon(
+    ctx,
+    [
+      [-115, 1],
+      [-78, -29],
+      [-36, -12],
+      [0, -46],
+      [40, -10],
+      [80, -25],
+      [124, 2]
+    ],
+    '#479f85',
+    '#377c70',
+    2
+  )
+  ctx.fillStyle = '#7fc69d'
+  ctx.fillRect(-44, -25, 46, 7)
+  ctx.fillRect(71, -17, 25, 5)
+  ctx.restore()
+}
+
+function drawLighthouse(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number
+): void {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(scale, scale)
+  pathPolygon(
+    ctx,
+    [
+      [-52, 0],
+      [-35, -21],
+      [-4, -9],
+      [25, -26],
+      [58, 0]
+    ],
+    '#4a9c83',
+    '#377c70',
+    2
+  )
+  pathPolygon(
+    ctx,
+    [
+      [-8, -2],
+      [-4, -50],
+      [8, -50],
+      [13, -2]
+    ],
+    '#fff3cf',
+    '#6e4d38',
+    2
+  )
+  ctx.fillStyle = '#ee775c'
+  ctx.fillRect(-6, -40, 16, 8)
+  ctx.fillRect(-5, -22, 14, 7)
+  ctx.fillStyle = '#ffdc73'
+  ctx.fillRect(-5, -57, 15, 8)
+  ctx.fillStyle = '#ee775c'
+  pathPolygon(
+    ctx,
+    [
+      [-9, -58],
+      [2, -68],
+      [14, -58]
+    ],
+    '#ee775c',
+    '#6e4d38',
+    2
+  )
+  ctx.globalAlpha = 0.22
+  ctx.fillStyle = '#fff5b8'
+  ctx.beginPath()
+  ctx.moveTo(0, -54)
+  ctx.lineTo(62, -74)
+  ctx.lineTo(62, -36)
+  ctx.closePath()
+  ctx.fill()
   ctx.restore()
 }
 
@@ -609,12 +743,13 @@ function drawLurkingMonster(
   const scale = projected.scale * 1.08
   ctx.save()
   ctx.globalAlpha = 0.88
-  ctx.drawImage(
+  drawImageFit(
+    ctx,
     assets.monsterSide,
-    Math.round(projected.x - 45 * scale),
-    Math.round(projected.y - 88 * scale),
-    Math.round(96 * scale),
-    Math.round(96 * scale)
+    projected.x,
+    projected.y + 5 * scale,
+    120 * scale,
+    92 * scale
   )
   ctx.restore()
 
@@ -628,7 +763,7 @@ function drawLurkingMonster(
     ctx.fillStyle = '#4a3627'
     ctx.font = 'bold 10px monospace'
     ctx.textAlign = 'center'
-    ctx.fillText('靠近会追你', projected.x, bubbleY - 2)
+    ctx.fillText('别贴太近', projected.x, bubbleY - 2)
   }
 }
 
@@ -664,7 +799,7 @@ function drawChasingMonster(
       ? assets.monsterRecoil
       : frames[state.monster.animationFrame] ?? assets.monsterClosed
   if (monsterImage) {
-    ctx.drawImage(monsterImage, x - size / 2, y - size, size, size)
+    drawImageFit(ctx, monsterImage, x, y, size, size)
   }
   ctx.restore()
 
@@ -714,7 +849,7 @@ function drawPlayer(
   const image =
     assets.surfCharacters[state.secretEventActive ? 'frog' : state.config.character]
   if (image) {
-    ctx.drawImage(image, -size * 0.35, -size * 0.92, size * 0.7, size * 0.88)
+    drawImageFit(ctx, image, 0, -2, size * 0.82, size * 0.92)
   }
   if (state.shield > 0) {
     ctx.strokeStyle = 'rgba(255, 248, 202, .9)'
@@ -771,7 +906,7 @@ function drawMotionFeedback(ctx: CanvasRenderingContext2D, state: GameState): vo
     ctx.lineWidth = 3
     ctx.font = 'bold 17px monospace'
     ctx.textAlign = 'center'
-    const text = state.lastDamage === 'monster' ? '−2 奶怪撞击' : '−1 障碍碰撞'
+    const text = state.lastDamage === 'monster' ? '−2 奶鲨撞击' : '−1 障碍碰撞'
     ctx.strokeText(text, player.x, y - 88 - (1 - state.damageNoticeTimer) * 10)
     ctx.fillText(text, player.x, y - 88 - (1 - state.damageNoticeTimer) * 10)
   }

@@ -16,15 +16,21 @@ import type {
 } from '../types'
 import {
   INITIAL_LIVES,
+  MAX_REVIVES,
   MIN_HAZARD_REACTION_SECONDS,
   MONSTER_WAKE_DISTANCE,
   PLAYER_ZONE,
+  REVIVE_BASE_COST,
   SAFE_CORRIDOR_WIDTH,
+  beginGamePlay,
   createRunGame,
+  endDownedRun,
   forceMonsterChase,
   forceSpawnNet,
   forceTriggerNet,
   planHazardRow,
+  reviveGame,
+  snapshotGame,
   updateGame
 } from './engine'
 
@@ -48,6 +54,8 @@ function quietRun(overrides: Partial<GameConfig> = {}) {
   game.nextHazardRowAt = Number.POSITIVE_INFINITY
   game.monster.nextSpawnDistance = Number.POSITIVE_INFINITY
   game.monster.nextSpawnTime = Number.POSITIVE_INFINITY
+  game.phase = 'playing'
+  game.paused = false
   return game
 }
 
@@ -72,9 +80,9 @@ function addObject(
 
 describe('naisurf game rules', () => {
   it('starts every mode and difficulty with exactly five lives', () => {
-    const modes: GameMode[] = ['endless', 'timeTrial', 'zigzag', 'collector']
+    const modes: GameMode[] = ['endless', 'timeTrial', 'zigzag', 'extreme']
     for (const mode of modes) {
-      for (const difficulty of ['easy', 'medium', 'hard'] as Difficulty[]) {
+      for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
         const game = createRunGame({ ...config, mode, difficulty })
         expect(game.lives).toBe(INITIAL_LIVES)
         expect(game.maxLives).toBe(INITIAL_LIVES)
@@ -175,16 +183,143 @@ describe('naisurf game rules', () => {
     expect(accelerating.speed).toBeGreaterThan(cruise.speed * 1.08)
   })
 
-  it('raises speed over time according to the selected difficulty and then caps', () => {
-    const gains: Record<Difficulty, number> = { easy: 0.1, medium: 0.18, hard: 0.26 }
-    for (const difficulty of ['easy', 'medium', 'hard'] as Difficulty[]) {
+  it('keeps raising speed without a hard cap', () => {
+    const gains: Record<Difficulty, number> = {
+      easy: 0.1,
+      medium: 0.18,
+      hard: 0.26,
+      hell: 0.36
+    }
+    for (const difficulty of ['easy', 'medium', 'hard', 'hell'] as Difficulty[]) {
       const game = quietRun({ difficulty })
       game.invulnerability = 999
-      for (let index = 0; index < 60 * 150; index++) {
+      game.elapsed = 120
+      for (let index = 0; index < 60 * 2; index++) {
         updateGame(game, idleInput, 1 / 60)
       }
-      expect(game.paceMultiplier).toBeCloseTo(1 + gains[difficulty], 5)
+      const atTwoMinutes = game.paceMultiplier
+      expect(atTwoMinutes).toBeGreaterThan(1 + gains[difficulty] * 0.98)
+      game.elapsed = 600
+      updateGame(game, idleInput, 1 / 60)
+      expect(game.paceMultiplier).toBeGreaterThan(atTwoMinutes)
+      expect(game.paceMultiplier).toBeCloseTo(
+        1 + gains[difficulty] * (600 / 120) ** 0.75,
+        4
+      )
     }
+  })
+
+  it('moves the world faster as the unbounded pace multiplier rises', () => {
+    const early = quietRun()
+    const late = quietRun()
+    early.speed = early.baseSpeedForRun
+    late.elapsed = 600
+    late.speed = late.baseSpeedForRun * (1 + getDifficulty('medium').rampGain * (600 / 120) ** 0.75)
+    const earlyStart = early.distance
+    const lateStart = late.distance
+    updateGame(early, idleInput, 0.05)
+    updateGame(late, idleInput, 0.05)
+    expect(late.distance - lateStart).toBeGreaterThan(early.distance - earlyStart)
+  })
+
+  it('freezes the game while loading and starts the trial clock only after countdown', () => {
+    const trial = createRunGame({ ...config, mode: 'timeTrial' })
+    updateGame(trial, idleInput, 1 / 60)
+    expect(trial.phase).toBe('loading')
+    expect(trial.elapsed).toBe(0)
+
+    beginGamePlay(trial)
+    expect(trial.phase).toBe('countdown')
+    for (let index = 0; index < 120; index++) updateGame(trial, idleInput, 1 / 60)
+    expect(trial.elapsed).toBe(0)
+    expect(trial.countdown).toBeGreaterThan(0)
+
+    for (let index = 0; index < 60; index++) updateGame(trial, idleInput, 1 / 60)
+    expect(trial.phase).toBe('playing')
+    updateGame(trial, idleInput, 1 / 60)
+    expect(trial.elapsed).toBeGreaterThan(0)
+  })
+
+  it('allows three paid revives with three lives and one second of full protection', () => {
+    const game = quietRun()
+    for (let attempt = 1; attempt <= MAX_REVIVES; attempt++) {
+      game.lives = 1
+      game.invulnerability = 0
+      const object = {
+        id: game.nextEntityId++,
+        kind: 'rock' as const,
+        x: 0,
+        z: PLAYER_ZONE + 0.2,
+        width: 0.16,
+        height: 0.25,
+        active: true,
+        wobble: 0,
+        scored: false
+      }
+      game.objects.push(object)
+      updateGame(game, idleInput, 0.05)
+      expect(game.downed).toBe(true)
+      expect(snapshotGame(game).reviveCost).toBe(REVIVE_BASE_COST * attempt)
+      const frozenElapsed = game.elapsed
+      updateGame(game, idleInput, 0.05)
+      expect(game.elapsed).toBe(frozenElapsed)
+      expect(reviveGame(game)).toBe(true)
+      expect(game.lives).toBe(3)
+      expect(game.revivesUsed).toBe(attempt)
+      expect(game.reviveInvulnerability).toBe(1)
+      game.reviveInvulnerability = 0
+    }
+
+    game.lives = 1
+    game.invulnerability = 0
+    game.objects.push({
+      id: game.nextEntityId++,
+      kind: 'rock',
+      x: 0,
+      z: PLAYER_ZONE + 0.2,
+      width: 0.16,
+      height: 0.25,
+      active: true,
+      wobble: 0,
+      scored: false
+    })
+    updateGame(game, idleInput, 0.05)
+    expect(game.downed).toBe(true)
+    expect(snapshotGame(game).canRevive).toBe(false)
+    expect(reviveGame(game)).toBe(false)
+    endDownedRun(game)
+    expect(game.ended).toBe(true)
+    expect(game.result?.reason).toBe('wrecked')
+  })
+
+  it('blocks all damage during revive protection', () => {
+    const game = quietRun()
+    game.reviveInvulnerability = 1
+    addObject(game, 'rock', 0)
+    updateGame(game, idleInput, 0.05)
+    expect(game.lives).toBe(5)
+
+    game.monster = {
+      ...game.monster,
+      state: 'lurking',
+      x: 0,
+      z: PLAYER_ZONE + 0.1
+    }
+    updateGame(game, idleInput, 0.05)
+    expect(game.lives).toBe(5)
+    expect(game.monster.state).toBe('escaped')
+  })
+
+  it('ends an extreme run immediately without offering revival', () => {
+    const game = quietRun({ mode: 'extreme' })
+    game.lives = 1
+    addObject(game, 'rock', 0)
+    updateGame(game, idleInput, 0.05)
+    expect(game.lives).toBe(0)
+    expect(game.downed).toBe(false)
+    expect(game.ended).toBe(true)
+    expect(game.phase).toBe('ended')
+    expect(game.result?.reason).toBe('wrecked')
   })
 })
 
@@ -335,7 +470,11 @@ describe('local progression and scoring', () => {
       guideVersion: undefined,
       milkCoins: 88,
       tutorialSeen: true,
-      unlocked: ['egg', 'mouse']
+      unlocked: ['egg', 'mouse'],
+      records: {
+        'collector:medium': 999,
+        'endless:medium': 321
+      }
     }
     vi.stubGlobal('localStorage', {
       getItem: () => JSON.stringify(oldSave)
@@ -344,6 +483,8 @@ describe('local progression and scoring', () => {
     expect(loaded.milkCoins).toBe(88)
     expect(loaded.unlocked).toEqual(['egg', 'mouse'])
     expect(loaded.guideVersion).toBe(0)
+    expect(loaded.records['collector:medium']).toBeUndefined()
+    expect(loaded.records['endless:medium']).toBe(321)
   })
 
   it('unlocks characters in the required order and only with enough coins', () => {

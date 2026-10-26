@@ -21,6 +21,8 @@ export const NET_CAPTURE_GAP = 24
 export const SAFE_CORRIDOR_WIDTH = 0.44
 export const SAFE_CORRIDOR_HALF = SAFE_CORRIDOR_WIDTH / 2
 export const MIN_HAZARD_REACTION_SECONDS = 1.6
+export const MAX_REVIVES = 3
+export const REVIVE_BASE_COST = 100
 
 export function mulberry32(seed: number): () => number {
   let value = seed >>> 0
@@ -47,18 +49,14 @@ function createRunResult(
       ? Math.max(5, state.elapsed - state.coins * 0.35)
       : config.mode === 'zigzag'
         ? state.bestStreak
-        : config.mode === 'collector'
-          ? state.coins
-          : state.distance
+        : state.distance
 
   const recordLabel =
     config.mode === 'timeTrial'
       ? `${recordValue.toFixed(2)} 秒`
       : config.mode === 'zigzag'
         ? `${recordValue} 连门`
-        : config.mode === 'collector'
-          ? `${recordValue} 滴`
-          : `${Math.round(recordValue)} 米`
+        : `${Math.round(recordValue)} 米`
 
   const difficulty = getDifficulty(config.difficulty)
   const captureMilk = state.capturedMonsters * 10
@@ -93,7 +91,22 @@ function createRunResult(
 function finish(state: GameState, reason: RunResult['reason']): void {
   if (state.ended) return
   state.ended = true
+  state.phase = 'ended'
+  state.downed = false
+  state.paused = true
   state.result = createRunResult(state, reason)
+  state.flash = 1
+}
+
+function enterDowned(state: GameState): void {
+  if (state.downed || state.ended) return
+  if (state.config.mode === 'extreme') {
+    finish(state, state.lastDamage === 'monster' ? 'caught' : 'wrecked')
+    return
+  }
+  state.downed = true
+  state.phase = 'downed'
+  state.paused = true
   state.flash = 1
 }
 
@@ -129,13 +142,17 @@ export function createGame(config: GameConfig): GameState {
   const monster = emptyMonster()
 
   if (config.mode === 'endless') {
-    monster.nextSpawnDistance = randomBetween(rng, 240, 320)
-  } else if (config.mode === 'collector') {
-    monster.nextSpawnTime = randomBetween(rng, 25, 35)
+    monster.nextSpawnDistance =
+      randomBetween(rng, 240, 320) / difficulty.monsterPressure
+  } else if (config.mode === 'extreme') {
+    monster.nextSpawnTime =
+      randomBetween(rng, 16, 24) / difficulty.monsterPressure
   }
 
   return {
     config,
+    phase: 'loading',
+    countdown: config.mode === 'timeTrial' ? 3 : 0,
     distance: 0,
     elapsed: 0,
     playerX: 0,
@@ -146,6 +163,7 @@ export function createGame(config: GameConfig): GameState {
     maxLives: INITIAL_LIVES,
     shield: 0,
     invulnerability: 0,
+    reviveInvulnerability: 0,
     boostEnergy: config.character === 'dog' ? 10 : config.character === 'chicken' ? 22 : 25,
     boosting: false,
     debuffTimer: 0,
@@ -160,6 +178,8 @@ export function createGame(config: GameConfig): GameState {
     monster,
     net: emptyNet(),
     capturedMonsters: 0,
+    revivesUsed: 0,
+    downed: false,
     paused: false,
     ended: false,
     nextEntityId: 1,
@@ -201,12 +221,15 @@ function createObject(
 
 function scheduleNextMonster(state: GameState, resetFromDistance = true): void {
   const mode = state.config.mode
+  const pressure = getDifficulty(state.config.difficulty).monsterPressure
   if (mode === 'endless') {
     state.monster.nextSpawnDistance =
-      (resetFromDistance ? state.distance : 0) + randomBetween(state.rng, 380, 480)
+      (resetFromDistance ? state.distance : 0) +
+      randomBetween(state.rng, 380, 480) / pressure
     state.monster.nextSpawnTime = Number.POSITIVE_INFINITY
-  } else if (mode === 'collector') {
-    state.monster.nextSpawnTime = state.elapsed + randomBetween(state.rng, 40, 55)
+  } else if (mode === 'extreme') {
+    state.monster.nextSpawnTime =
+      state.elapsed + randomBetween(state.rng, 24, 34) / pressure
     state.monster.nextSpawnDistance = Number.POSITIVE_INFINITY
   } else {
     state.monster.nextSpawnDistance = Number.POSITIVE_INFINITY
@@ -215,7 +238,7 @@ function scheduleNextMonster(state: GameState, resetFromDistance = true): void {
 }
 
 function startMonster(state: GameState): void {
-  if (state.config.mode !== 'endless' && state.config.mode !== 'collector') return
+  if (state.config.mode !== 'endless' && state.config.mode !== 'extreme') return
   state.monster = {
     state: 'lurking',
     x: state.rng() > 0.5 ? randomBetween(state.rng, 0.58, 0.82) : -randomBetween(state.rng, 0.58, 0.82),
@@ -229,6 +252,7 @@ function startMonster(state: GameState): void {
 }
 
 function triggerChase(state: GameState): void {
+  const pressure = getDifficulty(state.config.difficulty).monsterPressure
   state.monster.state = 'chasing'
   state.monster.gap = 38
   state.monster.age = 0
@@ -236,11 +260,11 @@ function triggerChase(state: GameState): void {
     ...emptyNet(),
     nextSpawnDistance:
       state.config.mode === 'endless'
-        ? state.distance + randomBetween(state.rng, 100, 160)
+        ? state.distance + randomBetween(state.rng, 100, 160) / pressure
         : Number.POSITIVE_INFINITY,
     nextSpawnTime:
-      state.config.mode === 'collector'
-        ? state.elapsed + randomBetween(state.rng, 12, 18)
+      state.config.mode === 'extreme'
+        ? state.elapsed + randomBetween(state.rng, 8, 12) / pressure
         : Number.POSITIVE_INFINITY
   }
   state.flash = 0.45
@@ -257,12 +281,15 @@ function missMonster(state: GameState): void {
 }
 
 function scheduleNetAfterMiss(state: GameState, resetDistance: boolean): void {
+  const pressure = getDifficulty(state.config.difficulty).monsterPressure
   if (state.config.mode === 'endless') {
     state.net.nextSpawnDistance =
-      (resetDistance ? state.distance : 0) + randomBetween(state.rng, 300, 420)
+      (resetDistance ? state.distance : 0) +
+      randomBetween(state.rng, 300, 420) / pressure
     state.net.nextSpawnTime = Number.POSITIVE_INFINITY
-  } else if (state.config.mode === 'collector') {
-    state.net.nextSpawnTime = state.elapsed + randomBetween(state.rng, 30, 40)
+  } else if (state.config.mode === 'extreme') {
+    state.net.nextSpawnTime =
+      state.elapsed + randomBetween(state.rng, 18, 26) / pressure
     state.net.nextSpawnDistance = Number.POSITIVE_INFINITY
   }
 }
@@ -288,7 +315,12 @@ function captureMonster(state: GameState): void {
 }
 
 function contactMonster(state: GameState): void {
+  if (state.phase !== 'playing') return
   if (state.monster.state === 'recoiling' || state.monster.state === 'captured') return
+  if (state.reviveInvulnerability > 0) {
+    state.monster.gap = Math.max(12, state.monster.gap)
+    return
+  }
   state.lives = Math.max(0, state.lives - 2)
   state.lastDamage = 'monster'
   state.damageNoticeTimer = 1.5
@@ -301,7 +333,7 @@ function contactMonster(state: GameState): void {
   state.events.push('monsterHit')
   state.events.push('monsterStop')
   scheduleNextMonster(state)
-  if (state.lives <= 0) finish(state, 'caught')
+  if (state.lives <= 0) enterDowned(state)
 }
 
 interface RowEntityPlan {
@@ -440,7 +472,6 @@ function currentRecordScore(state: GameState): number {
     return Math.max(5, state.elapsed - state.coins * 0.35)
   }
   if (state.config.mode === 'zigzag') return state.bestStreak
-  if (state.config.mode === 'collector') return state.coins
   return state.distance
 }
 
@@ -528,6 +559,8 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
 
   if (state.invulnerability > 0 || state.secretEventActive) return
 
+  if (state.reviveInvulnerability > 0) return
+
   if (state.shield > 0) {
     state.shield = 0
     state.invulnerability = 1.2
@@ -545,6 +578,7 @@ function handleObjectCrossing(state: GameState, object: WorldObject, input: Game
   state.lastDamage = 'obstacle'
   state.damageNoticeTimer = 1.1
   state.events.push('hit')
+  if (state.lives <= 0) enterDowned(state)
 }
 
 function updateMonster(state: GameState, dt: number, forward: number): void {
@@ -557,7 +591,12 @@ function updateMonster(state: GameState, dt: number, forward: number): void {
     monster.animationFrame = Math.floor(monster.age * 5) % 2
     if (monster.z <= PLAYER_ZONE) {
       const distance = Math.abs(state.playerX - monster.x)
-      if (distance <= MONSTER_HIT_HALF_WIDTH + PLAYER_COLLIDER_HALF_WIDTH) {
+      if (
+        state.reviveInvulnerability > 0 &&
+        distance <= MONSTER_HIT_HALF_WIDTH + PLAYER_COLLIDER_HALF_WIDTH
+      ) {
+        missMonster(state)
+      } else if (distance <= MONSTER_HIT_HALF_WIDTH + PLAYER_COLLIDER_HALF_WIDTH) {
         contactMonster(state)
       } else if (distance <= MONSTER_WAKE_DISTANCE) {
         triggerChase(state)
@@ -594,15 +633,19 @@ function updateMonster(state: GameState, dt: number, forward: number): void {
     return
   }
   if (monster.gap <= 0) {
-    monster.gap = 0
-    contactMonster(state)
+    if (state.reviveInvulnerability > 0) {
+      monster.gap = 12
+    } else {
+      monster.gap = 0
+      contactMonster(state)
+    }
   }
 }
 
 function updateNet(state: GameState, dt: number, forward: number): void {
   if (
     state.config.mode !== 'endless' &&
-    state.config.mode !== 'collector'
+    state.config.mode !== 'extreme'
   ) {
     return
   }
@@ -654,19 +697,38 @@ function updateNet(state: GameState, dt: number, forward: number): void {
 }
 
 export function updateGame(state: GameState, input: GameInput, dt: number): void {
-  if (state.paused || state.ended) return
   dt = Math.min(Math.max(dt, 0), 0.05)
+  if (state.phase === 'countdown') {
+    state.countdown = Math.max(0, state.countdown - dt)
+    if (state.countdown <= 0.001) {
+      state.countdown = 0
+      state.phase = 'playing'
+      state.paused = false
+    }
+    return
+  }
+  if (
+    state.paused ||
+    state.ended ||
+    state.downed ||
+    state.phase === 'loading' ||
+    state.phase === 'ready'
+  ) {
+    return
+  }
   const character = state.config.character
   const difficulty = getDifficulty(state.config.difficulty)
 
   state.elapsed += dt
   state.invulnerability = Math.max(0, state.invulnerability - dt)
+  state.reviveInvulnerability = Math.max(0, state.reviveInvulnerability - dt)
   state.shield = Math.max(0, state.shield - dt)
   state.debuffTimer = Math.max(0, state.debuffTimer - dt)
   state.damageNoticeTimer = Math.max(0, state.damageNoticeTimer - dt)
   state.shake = Math.max(0, state.shake - dt * 2.8)
   state.flash = Math.max(0, state.flash - dt * 2.4)
-  state.paceMultiplier = 1 + Math.min(1, state.elapsed / 120) * difficulty.rampGain
+  state.paceMultiplier =
+    1 + difficulty.rampGain * (state.elapsed / 120) ** 0.75
 
   if (state.secretEventActive) {
     state.secretEventTimer -= dt
@@ -780,7 +842,7 @@ export function updateGame(state: GameState, input: GameInput, dt: number): void
     (state.config.mode === 'endless' &&
       Number.isFinite(state.monster.nextSpawnDistance) &&
       state.distance >= state.monster.nextSpawnDistance) ||
-    (state.config.mode === 'collector' &&
+    (state.config.mode === 'extreme' &&
       Number.isFinite(state.monster.nextSpawnTime) &&
       state.elapsed >= state.monster.nextSpawnTime)
   if (
@@ -798,9 +860,48 @@ export function updateGame(state: GameState, input: GameInput, dt: number): void
     state.distance = TIME_TRIAL_DISTANCE
     finish(state, 'finished')
   }
-  if (state.lives <= 0) finish(state, 'wrecked')
 
   state.score = currentRecordScore(state)
+}
+
+export function beginGamePlay(state: GameState): void {
+  if (state.ended || state.downed) return
+  if (state.config.mode === 'timeTrial') {
+    state.phase = 'countdown'
+    state.countdown = 3
+    state.paused = false
+  } else {
+    state.phase = 'playing'
+    state.countdown = 0
+    state.paused = false
+  }
+}
+
+export function reviveGame(state: GameState): boolean {
+  if (
+    !state.downed ||
+    state.ended ||
+    state.config.mode === 'extreme' ||
+    state.revivesUsed >= MAX_REVIVES
+  ) {
+    return false
+  }
+  state.downed = false
+  state.paused = false
+  state.phase = 'playing'
+  state.lives = 3
+  state.revivesUsed += 1
+  state.invulnerability = 1
+  state.reviveInvulnerability = 1
+  state.damageNoticeTimer = 0
+  state.flash = 0.45
+  state.events.push('revive')
+  return true
+}
+
+export function endDownedRun(state: GameState): void {
+  if (!state.downed) return
+  finish(state, state.lastDamage === 'monster' ? 'caught' : 'wrecked')
 }
 
 export function createRunGame(config: GameConfig): GameState {
@@ -808,8 +909,11 @@ export function createRunGame(config: GameConfig): GameState {
 }
 
 export function snapshotGame(state: GameState): GameSnapshot {
+  const reviveCost = (state.revivesUsed + 1) * REVIVE_BASE_COST
   return {
     mode: state.config.mode,
+    phase: state.phase,
+    countdown: state.countdown,
     distance: state.distance,
     targetDistance: state.config.mode === 'timeTrial' ? TIME_TRIAL_DISTANCE : 0,
     elapsed: state.elapsed,
@@ -835,6 +939,14 @@ export function snapshotGame(state: GameState): GameSnapshot {
     paused: state.paused,
     capturedMonsters: state.capturedMonsters,
     invulnerable: state.invulnerability > 0,
+    reviveInvulnerable: state.reviveInvulnerability > 0,
+    revivesUsed: state.revivesUsed,
+    reviveCost,
+    canRevive:
+      state.downed &&
+      !state.ended &&
+      state.config.mode !== 'extreme' &&
+      state.revivesUsed < MAX_REVIVES,
     secretEventActive: state.secretEventActive,
     debuffRemaining: state.debuffTimer,
     paceMultiplier: state.paceMultiplier,

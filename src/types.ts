@@ -1,11 +1,12 @@
-export type GameMode = 'endless' | 'timeTrial' | 'zigzag' | 'collector'
-export type Difficulty = 'easy' | 'medium' | 'hard'
+export type GameMode = 'endless' | 'timeTrial' | 'zigzag' | 'extreme'
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'hell'
 export type CharacterId = 'egg' | 'mouse' | 'chicken' | 'dog' | 'frog'
 export type MonsterState = 'lurking' | 'chasing' | 'recoiling' | 'escaped' | 'captured'
 export type NetTrapState = 'idle' | 'armed' | 'snapped' | 'spent'
 export type Screen = 'home' | 'game'
 export type MotionState = 'cruise' | 'accelerating' | 'braking' | 'boosting'
 export type DamageKind = 'obstacle' | 'monster' | null
+export type RunPhase = 'loading' | 'ready' | 'countdown' | 'playing' | 'downed' | 'ended'
 export type GameEvent =
   | 'collect'
   | 'heart'
@@ -19,6 +20,7 @@ export type GameEvent =
   | 'debuff'
   | 'accelerate'
   | 'brake'
+  | 'revive'
 
 export interface CharacterDefinition {
   id: CharacterId
@@ -28,8 +30,8 @@ export interface CharacterDefinition {
   tradeoff: string
   price: number
   accent: string
-  image: string
   surfImage: string
+  showcaseImage: string
 }
 
 export interface ModeDefinition {
@@ -93,6 +95,8 @@ export interface GameConfig {
 
 export interface GameSnapshot {
   mode: GameMode
+  phase: RunPhase
+  countdown: number
   distance: number
   targetDistance: number
   elapsed: number
@@ -112,6 +116,10 @@ export interface GameSnapshot {
   paused: boolean
   capturedMonsters: number
   invulnerable: boolean
+  reviveInvulnerable: boolean
+  revivesUsed: number
+  reviveCost: number
+  canRevive: boolean
   secretEventActive: boolean
   debuffRemaining: number
   paceMultiplier: number
@@ -184,6 +192,8 @@ export interface NetTrap {
 
 export interface GameState {
   config: GameConfig
+  phase: RunPhase
+  countdown: number
   distance: number
   elapsed: number
   playerX: number
@@ -194,6 +204,7 @@ export interface GameState {
   maxLives: number
   shield: number
   invulnerability: number
+  reviveInvulnerability: number
   boostEnergy: number
   boosting: boolean
   debuffTimer: number
@@ -208,6 +219,8 @@ export interface GameState {
   monster: MonsterEncounter
   net: NetTrap
   capturedMonsters: number
+  revivesUsed: number
+  downed: boolean
   paused: boolean
   ended: boolean
   result?: RunResult

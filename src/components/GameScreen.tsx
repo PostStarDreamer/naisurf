@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { getDifficulty, getMode } from '../data'
+import { getMode } from '../data'
 import {
+  MAX_REVIVES,
+  beginGamePlay,
   createRunGame,
+  endDownedRun,
   forceMonsterChase,
   forceSpawnNet,
   forceTriggerNet,
+  reviveGame,
   snapshotGame,
   updateGame
 } from '../game/engine'
@@ -28,13 +32,15 @@ interface GameScreenProps {
   config: GameConfig
   settings: GameSettings
   audio: AudioEngine
+  milkCoins: number
   onFinish: (result: RunResult) => void
   onCaptureReward: (amount: number) => void
+  onSpendMilk: (amount: number) => boolean
   onExit: () => void
   onRestart: () => void
 }
 
-const EMPTY_ASSETS: RenderAssets = { characters: {}, surfCharacters: {}, objects: {} }
+const EMPTY_ASSETS: RenderAssets = { surfCharacters: {}, objects: {} }
 
 function clamp(value: number, min = -1, max = 1): number {
   return Math.max(min, Math.min(max, value))
@@ -44,8 +50,10 @@ export function GameScreen({
   config,
   settings,
   audio,
+  milkCoins,
   onFinish,
   onCaptureReward,
+  onSpendMilk,
   onExit,
   onRestart
 }: GameScreenProps) {
@@ -68,11 +76,13 @@ export function GameScreen({
   })
   const touchSteerRef = useRef(0)
   const reportedRef = useRef(false)
+  const playStartedRef = useRef(false)
   const [hud, setHud] = useState<GameSnapshot>(() => snapshotGame(gameRef.current))
   const [assetsLoaded, setAssetsLoaded] = useState(false)
+  const [fontsLoaded, setFontsLoaded] = useState(false)
+  const [reviving, setReviving] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const mode = getMode(config.mode)
-  const difficulty = getDifficulty(config.difficulty)
 
   useEffect(() => {
     let disposed = false
@@ -85,6 +95,17 @@ export function GameScreen({
       .catch(() => {
         if (!disposed) setAssetsLoaded(true)
       })
+    return () => {
+      disposed = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let disposed = false
+    const fonts = document.fonts?.ready ?? Promise.resolve()
+    fonts.then(() => {
+      if (!disposed) setFontsLoaded(true)
+    })
     return () => {
       disposed = true
     }
@@ -121,6 +142,17 @@ export function GameScreen({
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
 
+      if (
+        !playStartedRef.current &&
+        assetsLoaded &&
+        fontsLoaded
+      ) {
+        renderGame(context, state, assetsRef.current, settings)
+        playStartedRef.current = true
+        beginGamePlay(state)
+        setHud(snapshotGame(state))
+      }
+
       const keySteer =
         (keyboardRef.current.right ? 1 : 0) - (keyboardRef.current.left ? 1 : 0)
       const touchTarget =
@@ -153,10 +185,12 @@ export function GameScreen({
           void audio.sfx(event)
           if (event === 'capture') onCaptureReward(10)
         }
+        hudElapsed = 0
+        setHud(snapshotGame(state))
         state.events.length = 0
       }
       audio.setChaseAmbience(
-        state.monster.state === 'chasing',
+        !state.downed && state.monster.state === 'chasing',
         Math.max(0, 1 - state.monster.gap / 78)
       )
       renderGame(context, state, assetsRef.current, settings)
@@ -179,7 +213,7 @@ export function GameScreen({
 
     animationFrame = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(animationFrame)
-  }, [audio, onCaptureReward, onFinish, settings])
+  }, [assetsLoaded, audio, fontsLoaded, onCaptureReward, onFinish, settings])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -278,7 +312,14 @@ export function GameScreen({
   }
 
   const togglePause = () => {
-    if (gameRef.current.ended) return
+    if (
+      gameRef.current.ended ||
+      gameRef.current.downed ||
+      gameRef.current.phase === 'loading' ||
+      gameRef.current.phase === 'countdown'
+    ) {
+      return
+    }
     gameRef.current.paused = !gameRef.current.paused
     releaseInput()
     if (gameRef.current.paused) audio.setChaseAmbience(false)
@@ -308,6 +349,9 @@ export function GameScreen({
   })
 
   const chasePercent = Math.max(0, Math.min(100, (hud.monsterGap / 78) * 100))
+  const countdownNumber = Math.max(1, Math.ceil(hud.countdown))
+  const reviveAffordable = milkCoins >= hud.reviveCost && hud.canRevive
+  const revivesRemaining = Math.max(0, MAX_REVIVES - hud.revivesUsed)
   const modeProgress =
     config.mode === 'timeTrial'
       ? Math.min(100, (hud.distance / hud.targetDistance) * 100)
@@ -319,28 +363,38 @@ export function GameScreen({
       onContextMenu={(event) => event.preventDefault()}
     >
       <div className="game-topline">
-        <button className="pixel-icon-button" onClick={togglePause} aria-label="暂停">
+        <button
+          className="pixel-icon-button"
+          onClick={togglePause}
+          aria-label="暂停"
+          disabled={hud.phase === 'downed' || hud.phase === 'ended' || hud.phase === 'countdown'}
+        >
           <span>{hud.paused ? '▶' : 'Ⅱ'}</span>
         </button>
         <div className="game-mode-label">
           <span className="pixel-font">{mode.name}</span>
-          <small>{difficulty.name} · {mode.kicker}</small>
+          <small>{config.mode === 'extreme' ? '命只有一次，复活不可用' : '稳住节奏，浪上见'}</small>
         </div>
         <div className="game-score-pill">
-          <small>{mode.scoreLabel}</small>
+          <small>
+            {config.mode === 'timeTrial'
+              ? '本次用时'
+              : config.mode === 'zigzag'
+                ? '本局连门'
+                : '本局距离'}
+          </small>
           <strong className="pixel-font">
             {config.mode === 'timeTrial'
               ? `${hud.elapsed.toFixed(1)}s`
               : config.mode === 'zigzag'
                 ? `${hud.bestStreak}`
-                : config.mode === 'collector'
-                  ? `${hud.coins}`
-                  : `${Math.round(hud.distance)}m`}
+              : `${Math.round(hud.distance)}m`}
           </strong>
         </div>
       </div>
 
-      <section className="game-canvas-frame">
+      <section className="game-stage">
+        <div className="game-canvas-frame">
         <div
           className="game-canvas-hitbox"
         >
@@ -360,13 +414,18 @@ export function GameScreen({
           </div>
           {!assetsLoaded && (
             <div className="asset-loading">
-              <span className="pixel-font">loading waves…</span>
+              <span className="pixel-font">正在铺浪…</span>
             </div>
           )}
         </div>
 
         <div className="game-hud game-hud-left">
-          <div className="hud-chip hearts" aria-label={`剩余 ${hud.lives} 条生命`}>
+          <div
+            className="hud-chip hearts"
+            aria-label={`剩余 ${hud.lives} 条生命`}
+            aria-live="assertive"
+            aria-atomic="true"
+          >
             {Array.from({ length: hud.maxLives }).map((_, index) => (
               <span key={index} className={index < hud.lives ? 'heart full' : 'heart'}>
                 ♥
@@ -380,6 +439,11 @@ export function GameScreen({
           {hud.shield > 0 && (
             <div className="hud-chip shield-chip">
               泡泡盾 <strong>{Math.ceil(hud.shield)}s</strong>
+            </div>
+          )}
+          {hud.reviveInvulnerable && (
+            <div className="hud-chip shield-chip revive-shield-chip">
+              复活保护中
             </div>
           )}
           {hud.debuffRemaining > 0 && (
@@ -396,7 +460,7 @@ export function GameScreen({
               <div style={{ width: `${hud.boostEnergy}%` }} />
             </div>
           </div>
-          <div className={`speed-state ${hud.motionState}`}>
+          <div className={`speed-action ${hud.motionState}`}>
             <strong>
               {hud.motionState === 'braking'
                 ? '刹车'
@@ -406,10 +470,6 @@ export function GameScreen({
                     ? '冲刺'
                     : '巡航'}
             </strong>
-            <span>{hud.speedRatio.toFixed(2)}×</span>
-            <div className="speed-track">
-              <div style={{ width: `${Math.min(100, (hud.speedRatio / 1.8) * 100)}%` }} />
-            </div>
           </div>
           {hud.monsterActive && (
             <div
@@ -424,10 +484,10 @@ export function GameScreen({
               <div className="monster-meter-label">
                 <span>
                   {hud.monsterState === 'chasing'
-                    ? '奶怪距离'
+                    ? '奶鲨距离'
                     : hud.monsterState === 'recoiling'
-                      ? '奶怪已停止追击'
-                      : '附近有奶怪'}
+                      ? '奶鲨已停止追击'
+                      : '附近有奶鲨'}
                 </span>
                 {hud.monsterState === 'chasing' && (
                   <strong>{Math.ceil(hud.monsterGap)}m</strong>
@@ -452,7 +512,7 @@ export function GameScreen({
             <div className="net-hint">
               <span>渔网就位</span>
               <small>
-                {hud.netCaptureReady ? '奶怪已进入捕获距离' : '贴网掠过，诱捕奶怪'}
+                {hud.netCaptureReady ? '奶鲨已进入捕获距离' : '贴网掠过，诱捕奶鲨'}
               </small>
             </div>
           )}
@@ -474,8 +534,96 @@ export function GameScreen({
         )}
 
         {hud.secretEventActive && (
-          <div className="secret-banner">奶怪暴走！本局不计纪录</div>
+          <div className="secret-banner">奶鲨冲浪时间！本局不计纪录</div>
         )}
+
+        {!assetsLoaded && <div className="ready-shade" aria-hidden="true" />}
+
+        {assetsLoaded && (hud.phase === 'loading' || hud.phase === 'ready') && (
+          <div className="countdown-layer" aria-live="polite">
+            <span className="pixel-font">准备好</span>
+            <strong>浪要来了</strong>
+          </div>
+        )}
+
+        {hud.phase === 'countdown' && (
+          <div className="countdown-layer countdown-active" aria-live="assertive">
+            <span className="pixel-font">计时试炼</span>
+            <strong>{countdownNumber}</strong>
+            <small>看到“开冲”才开始计时</small>
+          </div>
+        )}
+
+        {config.mode === 'timeTrial' && hud.phase === 'playing' && hud.elapsed < 0.8 && (
+          <div className="countdown-layer countdown-go" aria-live="assertive">
+            <strong>开冲！</strong>
+          </div>
+        )}
+
+        {hud.phase === 'downed' && (
+          <div className="pause-layer revive-layer">
+            <div className="pause-card revive-card">
+              <span className="tiny-label">TAKE ONE MORE WAVE</span>
+              <h2>还能再冲一次</h2>
+              <p>{hud.lastDamage === 'monster' ? '奶鲨这一下太狠了。' : '浪板翻了，不过还没到收工的时候。'}</p>
+              <div className="revive-summary">
+                <span>本次复活 <strong>{hud.reviveCost} 奶币</strong></span>
+                <span>余额 <strong>{milkCoins}</strong></span>
+                <span>剩余 <strong>{revivesRemaining} 次</strong></span>
+              </div>
+              {hud.canRevive ? (
+                <button
+                  className="primary-button revive-button"
+                  disabled={!reviveAffordable || reviving}
+                  onClick={() => {
+                    if (!reviveAffordable || reviving) return
+                    setReviving(true)
+                    if (onSpendMilk(hud.reviveCost) && reviveGame(gameRef.current)) {
+                      setHud(snapshotGame(gameRef.current))
+                    }
+                    setReviving(false)
+                  }}
+                >
+                  {reviveAffordable
+                    ? `花 ${hud.reviveCost} 奶币继续`
+                    : `还差 ${hud.reviveCost - milkCoins} 奶币`}
+                </button>
+              ) : (
+                <button className="primary-button revive-button" disabled>
+                  本局复活次数已用完
+                </button>
+              )}
+              <small className="revive-hint">复活后恢复 3 条命，并获得 1 秒保护。</small>
+              <div className="revive-secondary-actions">
+                <button className="secondary-button" onClick={() => {
+                  endDownedRun(gameRef.current)
+                  setHud(snapshotGame(gameRef.current))
+                }}>结束本局</button>
+                <button className="text-button muted" onClick={onExit}>返回岸边</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hud.paused && !gameRef.current.ended && hud.phase !== 'downed' && (
+          <div className="pause-layer">
+            <div className="pause-card">
+              <span className="tiny-label">WAVE BREAK</span>
+              <h2>靠岸歇一会儿</h2>
+              <p>
+                电脑用 A/D 转向、W/S 加减速；手机按住左右半屏转向并使用底部按钮。
+                {config.mode === 'endless' || config.mode === 'extreme'
+                  ? ' 别让奶鲨咬到冲浪板。'
+                  : ' 稳住节奏再出发。'}
+              </p>
+              <button className="primary-button" onClick={togglePause}>继续冲浪</button>
+              <button className="secondary-button" onClick={() => setRulesOpen(true)}>规则速查</button>
+              <button className="text-button" onClick={onRestart}>重新开始</button>
+              <button className="text-button muted" onClick={onExit}>返回岸边</button>
+            </div>
+          </div>
+        )}
+        </div>
 
         <div className="touch-controls">
           <button className="speed-touch accelerate-touch" {...holdTouch('accelerate')} aria-label="按住加速">
@@ -488,25 +636,6 @@ export function GameScreen({
             ϟ
           </button>
         </div>
-
-        {hud.paused && !gameRef.current.ended && (
-          <div className="pause-layer">
-            <div className="pause-card">
-              <span className="tiny-label">WAVE BREAK</span>
-              <h2>靠岸歇一会儿</h2>
-              <p>
-                电脑用 A/D 转向、W/S 加减速；手机按住左右半屏转向并使用底部按钮。
-                {config.mode === 'endless' || config.mode === 'collector'
-                  ? ' 别让奶怪咬到冲浪板。'
-                  : ' 稳住节奏再出发。'}
-              </p>
-              <button className="primary-button" onClick={togglePause}>继续冲浪</button>
-              <button className="secondary-button" onClick={() => setRulesOpen(true)}>规则速查</button>
-              <button className="text-button" onClick={onRestart}>重新开始</button>
-              <button className="text-button muted" onClick={onExit}>返回岸边</button>
-            </div>
-          </div>
-        )}
       </section>
 
       <div className="game-control-strip">

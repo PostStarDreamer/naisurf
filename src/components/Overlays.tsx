@@ -85,7 +85,7 @@ export function ShopModal({
         <div>
           <span className="tiny-label">MILK SHOP</span>
           <h2 id="shop-title">浪友小卖部</h2>
-          <p>每条奶浪都能赚到奶币。角色按顺序解锁，能力带一点小代价。</p>
+          <p>奶币都靠冲浪赚。浪友要按顺序请回来，每个人都有自己的绝活和小毛病。</p>
         </div>
         <div className="balance-card">
           <span className="milk-dot" />
@@ -106,7 +106,7 @@ export function ShopModal({
               key={character.id}
             >
               <span className="shop-order pixel-font">0{index + 1}</span>
-              <img src={`${import.meta.env.BASE_URL}${character.image}`} alt={character.name} />
+              <img src={`${import.meta.env.BASE_URL}${character.showcaseImage}`} alt={character.name} />
               <div>
                 <h3>{character.name}</h3>
                 <p>{character.ability}</p>
@@ -137,7 +137,7 @@ export function ShopModal({
           )
         })}
       </div>
-      <p className="shop-footnote">仅使用游玩获得的奶币，不含付费购买。</p>
+      <p className="shop-footnote">这里只花游戏里赚到的奶币。</p>
     </Modal>
   )
 }
@@ -163,7 +163,7 @@ export function SettingsModal({
       <div className="modal-heading">
         <div>
           <span className="tiny-label">BEACH CONTROL</span>
-          <h2 id="settings-title">冲浪设置</h2>
+          <h2 id="settings-title">把浪调顺一点</h2>
         </div>
       </div>
 
@@ -204,20 +204,20 @@ export function SettingsModal({
 
       <div className="setting-group">
         <Toggle
-          label="高可见度"
-          description="标出道具吸附范围和障碍碰撞区"
+          label="显示碰撞范围"
+          description="把道具范围和障碍碰撞区标出来"
           checked={settings.highVisibility}
           onChange={(highVisibility) => onChange({ ...settings, highVisibility })}
         />
         <Toggle
-          label="降低速度"
-          description="整体速度约降低 15%，所有模式可用"
+          label="整体慢一点"
+          description="整局慢一点，心里更有底"
           checked={settings.reducedSpeed}
           onChange={(reducedSpeed) => onChange({ ...settings, reducedSpeed })}
         />
         <Toggle
-          label="减少动态"
-          description="关闭屏幕震动和部分闪动"
+          label="少点晃动"
+          description="少震一点，也少闪一点"
           checked={settings.reducedMotion}
           onChange={(reducedMotion) => onChange({ ...settings, reducedMotion })}
         />
@@ -255,8 +255,8 @@ export function SettingsModal({
       <div className="control-guide">
         <strong>操作方式</strong>
         <p>电脑：A/D 转向，W 加速，S 刹车，F 冲刺，空格暂停，Esc 打开暂停菜单。</p>
-        <p>手机：按住画面左半区向左、右半区向右；底部按住加速、刹车或冲刺。</p>
-        <p>电脑端不使用鼠标轨迹与手柄控制，避免输入冲突。</p>
+        <p>手机：按住左半屏或右半屏转向，底部按钮控制加速、刹车和冲刺。</p>
+        <p>电脑端只认键盘，鼠标移动不会让浪板乱跑。</p>
       </div>
     </Modal>
   )
@@ -273,37 +273,37 @@ export function TutorialModal({
     <Modal onClose={onClose} wide titleId="tutorial-title">
       <div className="tutorial-heading">
         <span className="tiny-label">WELCOME TO THE MILK WAVE</span>
-        <h2 id="tutorial-title">四件冲浪要紧事</h2>
+        <h2 id="tutorial-title">下水前，先记这四件事</h2>
       </div>
       <div className="tutorial-grid">
         <article>
           <span className="tutorial-number pixel-font">01</span>
           <div className="tutorial-icon">↔</div>
           <h3>先控方向与速度</h3>
-          <p>电脑用 A/D 转向、W/S 加减速；手机按住左右半屏转向，底部控制速度。</p>
+          <p>电脑用 A/D 转向、W/S 加减速；手机按住左右半屏转向，再用底部按钮控速。</p>
         </article>
         <article>
           <span className="tutorial-number pixel-font">02</span>
           <div className="tutorial-icon">♥</div>
           <h3>记住五条命</h3>
-          <p>撞障碍扣 1 命；撞到奶怪或被追上扣 2 命。没有接触就不会掉血。</p>
+          <p>撞障碍扣 1 命；撞到奶鲨或被它追上扣 2 命。没有接触就不会掉血。</p>
         </article>
         <article>
           <span className="tutorial-number pixel-font">03</span>
           <div className="tutorial-icon buff-icon">＋</div>
           <h3>分清道具</h3>
-          <p>黄色“+”是增益，紫色“−”是黏奶泡减速；珊瑚红警戒角标代表障碍。</p>
+          <p>黄色“+”是增益，紫色“−”是黏奶泡；看到珊瑚红“!”就赶紧让开。</p>
         </article>
         <article>
           <span className="tutorial-number pixel-font">04</span>
           <div className="tutorial-icon net-icon">网</div>
-          <h3>把奶怪引进网</h3>
-          <p>只有追击中的奶怪能被网住；奶怪距离小于 24m 时贴网掠过即可捕获。</p>
+          <h3>把奶鲨引进网</h3>
+          <p>只有正在追你的奶鲨能落网。它离你不到 24 米时，贴着渔网冲过去。</p>
         </article>
       </div>
       <div className="tutorial-actions">
-        <button className="primary-button" onClick={onStart}>明白了，开始冲浪</button>
-        <button className="text-button muted" onClick={onClose}>先看看岸边</button>
+        <button className="primary-button" onClick={onStart}>记住了，去冲浪</button>
+        <button className="text-button muted" onClick={onClose}>先在岸边看看</button>
       </div>
     </Modal>
   )
@@ -314,43 +314,43 @@ const RULE_OBJECTS = [
     icon: 'assets/objects/rock.svg',
     category: '障碍',
     name: '礁石 / 浮标 / 对手',
-    detail: '带珊瑚红“!”角标，命中扣 1 命；护盾可抵挡一次。'
+    detail: '看到珊瑚红“!”就让开。撞一次扣 1 命，泡泡盾能替你挡一次。'
   },
   {
     icon: 'assets/objects/coin.svg',
     category: '中性',
     name: '奶滴',
-    detail: '收集后计入局内奶滴和对应模式得分。'
+    detail: '顺手捞起来就好。奶滴会进局内计数，也会影响对应模式成绩。'
   },
   {
     icon: 'assets/objects/heart.svg',
     category: 'Buff',
     name: '爱心',
-    detail: '恢复 1 命；已满 5 命时转化为 3 奶币。'
+    detail: '残血时回 1 条命；满 5 条命再捡，会换成 3 枚奶币。'
   },
   {
     icon: 'assets/objects/boost.svg',
     category: 'Buff',
     name: '闪电',
-    detail: '增加 30 点冲刺能量；按住 F 或触屏闪电键使用。'
+    detail: '补 30 点冲刺能量。电脑按住 F，手机按住底部闪电。'
   },
   {
     icon: 'assets/objects/shield.svg',
     category: 'Buff',
     name: '救生圈',
-    detail: '获得 8 秒护盾，只抵挡一次障碍伤害，不抵挡奶怪。'
+    detail: '获得 8 秒泡泡盾，只能挡一次障碍，挡不住奶鲨。'
   },
   {
     icon: 'assets/objects/slime.svg',
     category: 'Debuff',
     name: '黏奶泡',
-    detail: '3 秒内速度 -25%、转向 -20%；重复拾取只刷新时间。'
+    detail: '沾上后 3 秒里速度和转向都会变慢。再撞一次只刷新时间，不会叠加。'
   },
   {
     icon: 'assets/net.svg',
     category: '特殊',
     name: '渔网',
-    detail: '只在追击中出现；奶怪距离小于 24m 且玩家横向距网中心不超过 0.52 时捕获。'
+    detail: '只在奶鲨追击时出现。它离你不到 24 米，你又贴住网中心，这一网就成。'
   }
 ]
 
@@ -361,7 +361,7 @@ export function RulesQuickReference({ onClose }: { onClose: () => void }) {
         <div>
           <span className="tiny-label">WAVE RULES</span>
           <h2 id="rules-title">规则速查</h2>
-          <p>所有难度固定 5 条命。只有真实碰撞才会扣命。</p>
+          <p>所有模式都从 5 条命开始。只有真的撞上才会掉血。</p>
         </div>
       </div>
       <div className="rule-controls-grid">
@@ -389,9 +389,11 @@ export function RulesQuickReference({ onClose }: { onClose: () => void }) {
         ))}
       </div>
       <div className="monster-rule-card">
-        <strong>奶怪判定</strong>
-        <p>奶怪潜伏在浪边。未撞上时，玩家横向距离进入 0.5（约半个冲浪板宽）才会触发追击；直接撞上或追击距离归零会扣 2 命，当前奶怪立即受撞后退并停止追击。</p>
-        <p>渔网只在追击时出现。奶怪距离小于 24m 且玩家横向距网中心不超过 0.52 时捕获；捕获后当前奶怪消失并获得 10 奶币，后续间隔到达时仍会有新奶怪出现。</p>
+        <strong>奶鲨怎么追，怎么抓</strong>
+        <p>奶鲨先在浪边慢慢游。没撞上时，你横向靠近到 0.5 以内，它就会追；直接撞上或让它追到零距离，会扣 2 命，它也会停下。</p>
+        <p>渔网只在追击时出现。它离你不到 24 米，你又贴近网中心，就能抓住当前这条奶鲨并拿到 10 枚奶币。下一段浪里还会遇到新的奶鲨。</p>
+        <strong className="rule-subhead">复活与极限模式</strong>
+        <p>普通模式每局最多复活 3 次，依次花 100、200、300 枚奶币，复活后回 3 条命并保护 1 秒。极限模式不能复活，命用完就结束。</p>
       </div>
     </Modal>
   )
@@ -458,16 +460,16 @@ function drawShareCard(
   ctx.fillStyle = '#443526'
   ctx.font = '600 30px "Microsoft YaHei", sans-serif'
   ctx.fillText(`奶滴 ${result.coins}`, 80, 748)
-  ctx.fillText(`捕获奶怪 ${result.captures}`, 370, 748)
+  ctx.fillText(`捕获奶鲨 ${result.captures}`, 370, 748)
   ctx.fillText(`奶币 +${result.earnedMilk}`, 750, 748)
 
   return loadCardImage(
-    `${import.meta.env.BASE_URL}${getCharacter(result.character).image}`
+    `${import.meta.env.BASE_URL}${getCharacter(result.character).showcaseImage}`
   ).then((image) => {
     if (image) ctx.drawImage(image, 620, 800, 300, 375)
     ctx.fillStyle = '#fff5ce'
     ctx.font = '700 28px "Microsoft YaHei", sans-serif'
-    ctx.fillText('下一次，把奶怪也留在网里。', 78, 1230)
+    ctx.fillText('下一浪，试试把奶鲨留在网里。', 78, 1230)
     ctx.font = '500 22px "Microsoft YaHei", sans-serif'
     ctx.fillText('naisurf · PLAY OFFLINE, SURF ANYWHERE', 78, 1325)
     return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
@@ -507,7 +509,7 @@ export function ResultOverlay({
     result.reason === 'finished'
       ? '你准时抵达了终点。'
       : result.reason === 'caught'
-        ? '奶怪这一撞太狠，生命耗尽了。'
+        ? '奶鲨这一下太狠，生命耗尽了。'
         : '冲浪板翻了，再试一次会更稳。'
 
   return (
@@ -523,7 +525,7 @@ export function ResultOverlay({
         </div>
         <div className="result-grid">
           <div><span>奶滴</span><strong>{result.coins}</strong></div>
-          <div><span>捕获奶怪</span><strong>{result.captures}</strong></div>
+          <div><span>捕获奶鲨</span><strong>{result.captures}</strong></div>
           <div><span>本局奶币</span><strong>+{result.earnedMilk}</strong></div>
         </div>
         {!result.shouldCountRecord && (
@@ -554,7 +556,7 @@ export function ModeGuide({
       <div className="modal-heading">
         <div>
           <span className="tiny-label">MODE MANUAL</span>
-          <h2 id="mode-guide-title">四种浪法</h2>
+          <h2 id="mode-guide-title">选一片浪，出发</h2>
         </div>
       </div>
       <div className="mode-guide-list">
@@ -593,9 +595,10 @@ export function ModeGuide({
         ))}
       </div>
       <div className="guide-note">
-        <strong>奶怪只出现在无尽浪潮和奶滴收集。</strong>
-        <p>它先在海面一侧潜伏。未撞上时，横向距离进入 0.5（约半个冲浪板宽）才会开始追击；撞上或被追上会扣 2 命并让当前奶怪停止。渔网只在追击中出现，奶怪距离小于 24m 且横向距网中心不超过 0.52 时捕获当前这一只，并获得 10 奶币。</p>
-        <p>电脑：A/D 转向、W 加速、S 刹车、F 冲刺。手机：按住左右半屏转向，使用底部加速、刹车与冲刺按钮。</p>
+        <strong>奶鲨只会在无尽浪潮和极限模式出现。</strong>
+        <p>它先在浪边潜伏。没撞上时，横向距离进入 0.5 才会追；撞上或被追到零距离会扣 2 命，并让它停下。渔网只在追击时出现，抓住当前奶鲨能拿到 10 枚奶币。</p>
+        <p>普通模式每局最多复活 3 次，费用依次是 100、200、300 枚奶币；复活后回 3 条命，并获得 1 秒保护。极限模式不能复活。</p>
+        <p>电脑：A/D 转向、W 加速、S 刹车、F 冲刺。手机：按住左右半屏转向，底部按钮控制加速、刹车和冲刺。</p>
       </div>
     </Modal>
   )

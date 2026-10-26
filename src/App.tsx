@@ -93,7 +93,8 @@ function ModeIcon({ mode }: { mode: GameMode }) {
   }
   return (
     <svg viewBox="0 0 36 36" aria-hidden="true">
-      <path d="M18 5c2 5 7 8 7 14a7 7 0 0 1-14 0c0-4 2-6 4-9 0 3 1 4 2 5 2-3 2-5 1-10Z" />
+      <path d="M18 4 8 20h8l-2 12 12-18h-8l3-10Z" />
+      <path d="M7 28h22" />
     </svg>
   )
 }
@@ -127,6 +128,8 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
   const audioRef = useRef<AudioEngine | null>(null)
+  const saveRef = useRef(save)
+  saveRef.current = save
 
   if (!audioRef.current) {
     audioRef.current = new AudioEngine(save.settings)
@@ -220,10 +223,20 @@ export function App() {
   const handleCaptureReward = useCallback(
     (amount: number) => {
       setSave((current) => creditCaptureReward(current, amount))
-      showToast(`捕获奶怪！奶币 +${amount}`)
+      showToast(`奶鲨进网！奶币 +${amount}`)
     },
     [showToast]
   )
+
+  const spendMilk = useCallback((amount: number): boolean => {
+    const current = saveRef.current
+    if (amount <= 0 || current.milkCoins < amount) return false
+    const next = { ...current, milkCoins: current.milkCoins - amount }
+    saveRef.current = next
+    persistSave(next)
+    setSave(next)
+    return true
+  }, [])
 
   const selectCharacter = (character: CharacterId) => {
     if (!save.unlocked.includes(character)) {
@@ -294,8 +307,10 @@ export function App() {
           config={gameConfig}
           settings={save.settings}
           audio={audio}
+          milkCoins={save.milkCoins}
           onFinish={handleFinish}
           onCaptureReward={handleCaptureReward}
+          onSpendMilk={spendMilk}
           onExit={() => {
             setScreen('home')
             setResult(null)
@@ -351,11 +366,11 @@ export function App() {
             <h1>
               冲过奶浪，
               <br />
-              <span>别被奶怪追上。</span>
+              <span>别被奶鲨追上。</span>
             </h1>
             <p>
-              五位软乎乎的浪友，一片越冲越怪的牛奶海。
-              躲礁石、抢奶滴、拉冲刺，再找机会把奶怪骗进渔网。
+              五位软乎乎的浪友，一片越冲越快的奶油海。
+              躲礁石、捞奶滴、按住冲刺，再找机会把追来的奶鲨送进渔网。
             </p>
             <div className="hero-actions">
               <button className="primary-button hero-play" onClick={startRun}>
@@ -369,7 +384,7 @@ export function App() {
             </div>
             <div className="hero-meta">
               <span><strong>{totalUnlocked}</strong> / 5 浪友</span>
-              <span><strong>{save.totalCaptures}</strong> 只奶怪被捕</span>
+              <span><strong>{save.totalCaptures}</strong> 条奶鲨被捕</span>
               <span>无需登录</span>
             </div>
           </div>
@@ -380,14 +395,14 @@ export function App() {
             <div className="cloud-bank bank-two" />
             <img
               className="hero-monster"
-              src={`${import.meta.env.BASE_URL}assets/monster.svg`}
-              alt="蓝灰鲨鱼奶怪"
+              src={`${import.meta.env.BASE_URL}assets/monster.png`}
+              alt="黄色奶鲨"
             />
             <div className="character-spotlight">
               <div className="spotlight-ring" />
               <img
                 className="hero-character"
-                src={`${import.meta.env.BASE_URL}${selectedCharacter.image}`}
+                src={`${import.meta.env.BASE_URL}${selectedCharacter.showcaseImage}`}
                 alt={selectedCharacter.name}
               />
               <div className="surfboard" />
@@ -395,8 +410,8 @@ export function App() {
             <div className="hero-wave wave-back" />
             <div className="hero-wave wave-front" />
             <div className="monster-note">
-              <span>奶怪出没</span>
-              <small>靠得太近就会追你</small>
+              <span>奶鲨出没</span>
+              <small>贴太近，它就会追</small>
             </div>
             <div className="character-label">
               <span className="pixel-font">{selectedCharacter.name}</span>
@@ -465,7 +480,7 @@ export function App() {
             </div>
             <div className="launch-runner">
               <img
-                src={`${import.meta.env.BASE_URL}${selectedCharacter.image}`}
+                src={`${import.meta.env.BASE_URL}${selectedCharacter.showcaseImage}`}
                 alt={selectedCharacter.name}
               />
               <div>
@@ -508,7 +523,7 @@ export function App() {
                   </span>
                   <div className="character-image-wrap">
                     <img
-                      src={`${import.meta.env.BASE_URL}${character.image}`}
+                      src={`${import.meta.env.BASE_URL}${character.showcaseImage}`}
                       alt={character.name}
                     />
                     {!unlocked && <span className="lock-badge">锁定</span>}
@@ -533,25 +548,25 @@ export function App() {
         <section className="monster-section">
           <div className="monster-art">
             <img
-              src={`${import.meta.env.BASE_URL}assets/monster.svg`}
-              alt="蓝灰鲨鱼奶怪的三视图风格像素形象"
+              src={`${import.meta.env.BASE_URL}assets/monster.png`}
+              alt="黄色奶鲨的像素形象"
             />
-            <div className="monster-stamp">DANGER<br />WET</div>
+            <div className="monster-stamp">FAST<br />CHOMP</div>
           </div>
           <div className="monster-copy">
-            <span className="tiny-label">CREATURE FILE / 001</span>
-            <h2>它笑起来<br />有好几排牙。</h2>
+            <span className="tiny-label">CRUISE BUDDY / 001</span>
+            <h2>一张嘴，<br />就是催你快跑。</h2>
             <p>
-              蓝灰色的巨齿鲨奶怪挺着奶油圆肚，侧鳃轻轻开合。它先安静地泡在浪边，
-              等你进入感应范围才猛然追来；追击时会不断张嘴咬合。
+              奶鲨黄澄澄的，绿色眼睛看起来还挺友好。它会先在浪边慢慢游，
+              等你靠得太近才追上来，一边追一边张嘴咬合。别慌，渔网能把它留住。
             </p>
             <div className="monster-facts">
-              <div><strong>潜伏</strong><span>靠近才触发</span></div>
-              <div><strong>追击</strong><span>冲刺拉距离</span></div>
-              <div><strong>捕获</strong><span>只困当前一只</span></div>
+              <div><strong>潜伏</strong><span>别贴太近</span></div>
+              <div><strong>追击</strong><span>冲刺能拉开</span></div>
+              <div><strong>捕获</strong><span>一网只困一只</span></div>
             </div>
             <button className="secondary-button" onClick={startRun}>
-              <span className="play-triangle">▶</span> 去会会它
+              <span className="play-triangle">▶</span> 去浪里见它
             </button>
           </div>
         </section>
@@ -561,19 +576,19 @@ export function App() {
             <span className="pixel-font">QUICK TIPS</span>
             <strong>第一次冲浪？</strong>
           </div>
-          <div className="tip-item"><span>01</span><p><strong>贴近浪门</strong>连续穿门，发夹弯分数才会涨。</p></div>
-          <div className="tip-item"><span>02</span><p><strong>存一点冲刺</strong>奶怪靠近时再按 F 或底部闪电，别把能量提前烧光。</p></div>
-          <div className="tip-item"><span>03</span><p><strong>分清标识</strong>珊瑚红“!”是障碍，黄色“+”是增益，紫色“−”是减速。</p></div>
+          <div className="tip-item"><span>01</span><p><strong>看准浪门</strong>穿门别偏，发夹弯的连击才接得住。</p></div>
+          <div className="tip-item"><span>02</span><p><strong>冲刺别乱按</strong>奶鲨逼近时再按 F 或底部闪电，留一点能量更稳。</p></div>
+          <div className="tip-item"><span>03</span><p><strong>认准颜色</strong>珊瑚红“!”要躲，黄色“+”能用，紫色“−”会让浪板变沉。</p></div>
         </section>
       </main>
 
       <footer className="site-footer">
         <BrandMark />
-        <p>原创像素冲浪小游戏 · 支持手机、电脑与离线游玩</p>
+        <p>原创像素冲浪小游戏 · 手机、电脑都能玩，断网也能下水</p>
         <div>
           {installPrompt && <button onClick={installPwa}>安装到设备</button>}
           <button onClick={() => setGuideOpen(true)}>玩法说明</button>
-          <span>v1.1</span>
+          <span>v1.2</span>
         </div>
       </footer>
 

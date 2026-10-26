@@ -15,6 +15,7 @@ type SfxName =
   | 'debuff'
   | 'accelerate'
   | 'brake'
+  | 'revive'
 
 export class AudioEngine {
   private context?: AudioContext
@@ -163,8 +164,7 @@ export class AudioEngine {
         [260, 0.18, 'triangle'],
         [170, 0.3, 'sawtooth']
       ],
-      click: [[620, 0.04, 'square']]
-      ,
+      click: [[620, 0.04, 'square']],
       monsterWake: [
         [92, 0.16, 'sawtooth'],
         [68, 0.22, 'triangle'],
@@ -191,7 +191,13 @@ export class AudioEngine {
         [220, 0.1, 'triangle'],
         [330, 0.14, 'triangle']
       ],
-      brake: [[130, 0.16, 'triangle']]
+      brake: [[130, 0.16, 'triangle']],
+      revive: [
+        [260, 0.1, 'triangle'],
+        [390, 0.12, 'triangle'],
+        [620, 0.16, 'square'],
+        [820, 0.22, 'triangle']
+      ]
     }
 
     patterns[name].forEach(([frequency, duration, type], index) => {

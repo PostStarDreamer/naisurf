@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: 'naisurf · 奶浪冲浪祭',
         short_name: 'naisurf',
-        description: '和五位奶系角色一起冲浪，甩开猎奇奶怪的像素伪 3D 小游戏。',
+        description: '和五位软乎乎的浪友冲过奶油海，躲障碍、甩奶鲨、挑战极限模式。',
         theme_color: '#fff3cc',
         background_color: '#fff3cc',
         display: 'standalone',
