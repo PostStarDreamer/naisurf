@@ -19,7 +19,9 @@ export const CHARACTERS: CharacterDefinition[] = [
     unlockRequirement: { runs: 0, captures: 0 },
     accent: '#ffd84f',
     surfImage: 'assets/characters/egg-surf.png',
-    showcaseImage: 'assets/showcase/egg.png'
+    surfWebp: 'assets/characters/egg-surf.game.webp',
+    showcaseImage: 'assets/showcase/egg.png',
+    showcaseWebp: 'assets/showcase/egg.webp'
   },
   {
     id: 'mouse',
@@ -31,7 +33,9 @@ export const CHARACTERS: CharacterDefinition[] = [
     unlockRequirement: { runs: 3, captures: 0 },
     accent: '#f4bd62',
     surfImage: 'assets/characters/mouse-surf.png',
-    showcaseImage: 'assets/showcase/mouse.png'
+    surfWebp: 'assets/characters/mouse-surf.game.webp',
+    showcaseImage: 'assets/showcase/mouse.png',
+    showcaseWebp: 'assets/showcase/mouse.webp'
   },
   {
     id: 'chicken',
@@ -43,7 +47,9 @@ export const CHARACTERS: CharacterDefinition[] = [
     unlockRequirement: { runs: 8, captures: 4 },
     accent: '#f57955',
     surfImage: 'assets/characters/chicken-surf.png',
-    showcaseImage: 'assets/showcase/chicken.png'
+    surfWebp: 'assets/characters/chicken-surf.game.webp',
+    showcaseImage: 'assets/showcase/chicken.png',
+    showcaseWebp: 'assets/showcase/chicken.webp'
   },
   {
     id: 'dog',
@@ -55,7 +61,9 @@ export const CHARACTERS: CharacterDefinition[] = [
     unlockRequirement: { runs: 15, captures: 8 },
     accent: '#f4c172',
     surfImage: 'assets/characters/dog-surf.png',
-    showcaseImage: 'assets/showcase/dog.png'
+    surfWebp: 'assets/characters/dog-surf.game.webp',
+    showcaseImage: 'assets/showcase/dog.png',
+    showcaseWebp: 'assets/showcase/dog.webp'
   },
   {
     id: 'frog',
@@ -67,7 +75,9 @@ export const CHARACTERS: CharacterDefinition[] = [
     unlockRequirement: { runs: 24, captures: 16 },
     accent: '#ffcf45',
     surfImage: 'assets/characters/frog-surf.png',
-    showcaseImage: 'assets/showcase/frog.png'
+    surfWebp: 'assets/characters/frog-surf.game.webp',
+    showcaseImage: 'assets/showcase/frog.png',
+    showcaseWebp: 'assets/showcase/frog.webp'
   }
 ]
 

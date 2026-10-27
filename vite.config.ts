@@ -38,10 +38,39 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,mp3,woff,woff2}'],
+        globPatterns: [
+          '**/*.{js,css,html,woff,woff2}',
+          'icon-*.png'
+        ],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: `${base}index.html`,
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.(?:webp|png|svg|jpe?g)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'naisurf-images-v1',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: {
+                maxEntries: 64,
+                maxAgeSeconds: 30 * 24 * 60 * 60
+              }
+            }
+          },
+          {
+            urlPattern: /\/audio\/.*\.mp3$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'naisurf-audio-v1',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: {
+                maxEntries: 2,
+                maxAgeSeconds: 90 * 24 * 60 * 60
+              }
+            }
+          }
+        ]
       }
     })
   ],

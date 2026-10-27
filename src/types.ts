@@ -53,7 +53,9 @@ export interface CharacterDefinition {
   price: number
   accent: string
   surfImage: string
+  surfWebp: string
   showcaseImage: string
+  showcaseWebp: string
   unlockRequirement: UnlockRequirement
 }
 

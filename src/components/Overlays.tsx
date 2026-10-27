@@ -15,6 +15,7 @@ import type {
   RunResult,
   SaveData
 } from '../types'
+import { WebpImage } from './WebpImage'
 
 export function Modal({
   children,
@@ -109,7 +110,13 @@ export function ShopModal({
               key={character.id}
             >
               <span className="shop-order pixel-font">0{index + 1}</span>
-              <img src={`${import.meta.env.BASE_URL}${character.showcaseImage}`} alt={character.name} />
+              <WebpImage
+                src={character.showcaseImage}
+                webp={character.showcaseWebp}
+                alt={character.name}
+                loading="lazy"
+                decoding="async"
+              />
               <div>
                 <h3>{character.name}</h3>
                 <p>{character.ability}</p>
@@ -344,6 +351,8 @@ export function DonationModal({ onClose }: { onClose: () => void }) {
         <img
           src={`${import.meta.env.BASE_URL}assets/support/star-dreamer-tip.jpg`}
           alt="StarDreamer 的打赏码"
+          loading="lazy"
+          decoding="async"
         />
         <p>完全自愿，不影响游戏内容、成绩或角色解锁。</p>
       </div>

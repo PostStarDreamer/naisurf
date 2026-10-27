@@ -17,6 +17,7 @@ import {
 import {
   GAME_HEIGHT,
   GAME_WIDTH,
+  loadOtherCharacterAssets,
   loadRenderAssets,
   renderGame,
   type RenderAssets
@@ -100,6 +101,7 @@ export function GameScreen({
   const [fontsLoaded, setFontsLoaded] = useState(false)
   const [reviving, setReviving] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
+  const [pageHidden, setPageHidden] = useState(() => document.hidden)
   const mode = getMode(config.mode)
   const captureLifeChange = (lives: number): boolean => {
     const delta = lives - previousLivesRef.current
@@ -119,11 +121,12 @@ export function GameScreen({
 
   useEffect(() => {
     let disposed = false
-    loadRenderAssets()
+    loadRenderAssets(config.character)
       .then((assets) => {
         if (disposed) return
         assetsRef.current = assets
         setAssetsLoaded(true)
+        void loadOtherCharacterAssets(assets, config.character)
       })
       .catch(() => {
         if (!disposed) setAssetsLoaded(true)
@@ -131,16 +134,22 @@ export function GameScreen({
     return () => {
       disposed = true
     }
-  }, [])
+  }, [config.character])
 
   useEffect(() => {
     let disposed = false
-    const fonts = document.fonts?.ready ?? Promise.resolve()
-    fonts.then(() => {
+    const timeout = window.setTimeout(() => {
       if (!disposed) setFontsLoaded(true)
-    })
+    }, 400)
+    const fonts = document.fonts?.ready ?? Promise.resolve()
+    fonts
+      .then(() => {
+        if (!disposed) setFontsLoaded(true)
+      })
+      .finally(() => window.clearTimeout(timeout))
     return () => {
       disposed = true
+      window.clearTimeout(timeout)
     }
   }, [])
 
@@ -162,18 +171,29 @@ export function GameScreen({
   }, [])
 
   useEffect(() => {
+    const canRun =
+      assetsLoaded &&
+      fontsLoaded &&
+      !hud.paused &&
+      !rulesOpen &&
+      !pageHidden &&
+      hud.phase !== 'downed' &&
+      hud.phase !== 'ended'
+    if (!canRun) return
+
     const canvas = canvasRef.current
     if (!canvas) return
     const context = canvas.getContext('2d', { alpha: false })
     if (!context) return
     let animationFrame = 0
     let last = performance.now()
+    let frameElapsed = 0
     let hudElapsed = 0
+    const targetFrameMs = config.inputProfile === 'touch' ? 1000 / 30 : 1000 / 60
+    const hudInterval = config.inputProfile === 'touch' ? 0.16 : 0.08
 
     const loop = (now: number) => {
       const state = gameRef.current
-      const dt = Math.min(0.05, (now - last) / 1000)
-      last = now
 
       if (
         !playStartedRef.current &&
@@ -184,7 +204,31 @@ export function GameScreen({
         playStartedRef.current = true
         beginGamePlay(state)
         setHud(snapshotGame(state, walletBalanceRef.current))
+        last = now
+        frameElapsed = 0
+        animationFrame = requestAnimationFrame(loop)
+        return
       }
+
+      if (
+        state.paused ||
+        state.downed ||
+        state.ended ||
+        document.hidden
+      ) {
+        setHud(snapshotGame(state, walletBalanceRef.current))
+        audio.setChaseAmbience(false)
+        return
+      }
+
+      frameElapsed += now - last
+      last = now
+      if (frameElapsed + 0.25 < targetFrameMs) {
+        animationFrame = requestAnimationFrame(loop)
+        return
+      }
+      const dt = Math.min(0.05, frameElapsed / 1000)
+      frameElapsed %= targetFrameMs
 
       const keySteer =
         (keyboardRef.current.right ? 1 : 0) - (keyboardRef.current.left ? 1 : 0)
@@ -246,16 +290,18 @@ export function GameScreen({
       renderGame(context, state, assetsRef.current, settings)
       hudElapsed += dt
 
-      if (hudElapsed > 0.07) {
+      if (hudElapsed >= hudInterval) {
         hudElapsed = 0
         setHud(snapshotGame(state, walletBalanceRef.current))
       }
 
       if (state.result && !reportedRef.current) {
         reportedRef.current = true
+        setHud(snapshotGame(state, walletBalanceRef.current))
         audio.setChaseAmbience(false)
         onFinish(state.result)
         void audio.sfx(state.result.reason === 'finished' ? 'capture' : 'gameover')
+        return
       }
 
       animationFrame = requestAnimationFrame(loop)
@@ -263,7 +309,19 @@ export function GameScreen({
 
     animationFrame = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(animationFrame)
-  }, [assetsLoaded, audio, fontsLoaded, onFinish, onWalletTransactions, settings])
+  }, [
+    assetsLoaded,
+    audio,
+    config.inputProfile,
+    fontsLoaded,
+    hud.paused,
+    hud.phase,
+    onFinish,
+    onWalletTransactions,
+    pageHidden,
+    rulesOpen,
+    settings
+  ])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -329,6 +387,7 @@ export function GameScreen({
     const onBlur = () => releaseInput()
     const onVisibility = () => {
       if (document.hidden) releaseInput()
+      setPageHidden(document.hidden)
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
@@ -424,6 +483,7 @@ export function GameScreen({
   return (
     <main
       className={`game-shell mode-${config.mode}`}
+      data-input-profile={config.inputProfile}
       onContextMenu={(event) => event.preventDefault()}
     >
       <div className="game-topline">

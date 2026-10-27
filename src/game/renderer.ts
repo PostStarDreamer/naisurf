@@ -7,6 +7,14 @@ let WIDTH = 640
 let HEIGHT = 360
 let HORIZON = 164
 let CANVAS_SCALE = 1
+let BACKGROUND_CACHE: {
+  key: string
+  sky: HTMLCanvasElement
+  sea: HTMLCanvasElement
+  distant: HTMLCanvasElement
+  sunX: number
+  sunSize: number
+} | null = null
 
 export interface RenderAssets {
   surfCharacters: Partial<Record<CharacterId, HTMLImageElement>>
@@ -32,15 +40,30 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   })
 }
 
-export async function loadRenderAssets(): Promise<RenderAssets> {
+async function loadCompatibleImage(
+  preferredPath: string,
+  fallbackPath: string
+): Promise<HTMLImageElement> {
+  try {
+    return await loadImage(assetUrl(preferredPath))
+  } catch {
+    return loadImage(assetUrl(fallbackPath))
+  }
+}
+
+export async function loadRenderAssets(
+  characterId: CharacterId
+): Promise<RenderAssets> {
+  const selected = CHARACTERS.find((character) => character.id === characterId)
+  if (!selected) throw new Error(`未知角色: ${characterId}`)
+
   const [surfEntries, objectEntries, monsterLure, monsterCapture, monsterRecoil, monsterChaseClosed, monsterChaseOpen, net] =
     await Promise.all([
-      Promise.all(
-        CHARACTERS.map(async (character) => {
-          const image = await loadImage(assetUrl(character.surfImage))
-          return [character.id, image] as const
-        })
-      ),
+      Promise.all([
+        loadCompatibleImage(selected.surfWebp, selected.surfImage).then(
+          (image) => [selected.id, image] as const
+        )
+      ]),
       Promise.all(
         (
           [
@@ -58,11 +81,26 @@ export async function loadRenderAssets(): Promise<RenderAssets> {
           return [kind, image] as const
         })
       ),
-      loadImage(assetUrl('assets/monster-lure-three-quarter.png')),
-      loadImage(assetUrl('assets/monster-capture-back-three-quarter.png')),
-      loadImage(assetUrl('assets/monster-recoil-three-quarter.png')),
-      loadImage(assetUrl('assets/monster-chase-closed-front.png')),
-      loadImage(assetUrl('assets/monster-chase-open-front.png')),
+      loadCompatibleImage(
+        'assets/monster-lure-three-quarter.game.webp',
+        'assets/monster-lure-three-quarter.png'
+      ),
+      loadCompatibleImage(
+        'assets/monster-capture-back-three-quarter.game.webp',
+        'assets/monster-capture-back-three-quarter.png'
+      ),
+      loadCompatibleImage(
+        'assets/monster-recoil-three-quarter.game.webp',
+        'assets/monster-recoil-three-quarter.png'
+      ),
+      loadCompatibleImage(
+        'assets/monster-chase-closed-front.game.webp',
+        'assets/monster-chase-closed-front.png'
+      ),
+      loadCompatibleImage(
+        'assets/monster-chase-open-front.game.webp',
+        'assets/monster-chase-open-front.png'
+      ),
       loadImage(assetUrl('assets/net.svg'))
     ])
   return {
@@ -77,6 +115,27 @@ export async function loadRenderAssets(): Promise<RenderAssets> {
     monsterChaseOpen,
     net
   }
+}
+
+export async function loadOtherCharacterAssets(
+  assets: RenderAssets,
+  selectedId: CharacterId
+): Promise<void> {
+  await Promise.all(
+    CHARACTERS.filter((character) => character.id !== selectedId).map(
+      async (character) => {
+        try {
+          const image = await loadCompatibleImage(
+            character.surfWebp,
+            character.surfImage
+          )
+          assets.surfCharacters[character.id] = image
+        } catch {
+          // The selected character remains playable if an optional sprite fails.
+        }
+      }
+    )
+  )
 }
 
 function project(x: number, z: number): { x: number; y: number; scale: number; t: number } {
@@ -127,37 +186,103 @@ function drawImageFit(
   ctx.drawImage(image, centerX - width / 2, bottom - height, width, height)
 }
 
+function backgroundCanvas(): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  canvas.width = WIDTH
+  canvas.height = HEIGHT
+  return canvas
+}
+
+function getBackgroundCache() {
+  const key = `${WIDTH}x${HEIGHT}:${HORIZON}`
+  if (BACKGROUND_CACHE?.key === key) return BACKGROUND_CACHE
+
+  const sunSize = Math.min(WIDTH * 0.18, HEIGHT * 0.24)
+  const sunX = WIDTH * 0.77
+  const sunY = HORIZON * (WIDTH / HEIGHT > 1 ? 0.42 : 0.6)
+  const sky = backgroundCanvas()
+  const skyContext = sky.getContext('2d')
+  if (!skyContext) throw new Error('无法创建背景缓存')
+
+  const skyGradient = skyContext.createLinearGradient(0, 0, 0, HORIZON + 38)
+  skyGradient.addColorStop(0, '#d8aaa4')
+  skyGradient.addColorStop(0.45, '#e9b7a7')
+  skyGradient.addColorStop(0.78, '#f4c68d')
+  skyGradient.addColorStop(1, '#ffdca1')
+  skyContext.fillStyle = skyGradient
+  skyContext.fillRect(0, 0, WIDTH, HORIZON + 38)
+  skyContext.fillStyle = 'rgba(255, 215, 146, .17)'
+  for (let index = 3; index >= 1; index--) {
+    skyContext.beginPath()
+    skyContext.arc(sunX, sunY, sunSize * (1.05 + index * 0.26), 0, Math.PI * 2)
+    skyContext.fill()
+  }
+  const sunGradient = skyContext.createLinearGradient(
+    sunX,
+    sunY - sunSize,
+    sunX,
+    sunY + sunSize
+  )
+  sunGradient.addColorStop(0, '#ffe2aa')
+  sunGradient.addColorStop(0.62, '#f4c68d')
+  sunGradient.addColorStop(1, '#d8aaa4')
+  skyContext.fillStyle = sunGradient
+  skyContext.beginPath()
+  skyContext.arc(sunX, sunY, sunSize, 0, Math.PI * 2)
+  skyContext.fill()
+
+  const distant = backgroundCanvas()
+  const distantContext = distant.getContext('2d')
+  if (!distantContext) throw new Error('无法创建远景缓存')
+  drawIsland(distantContext, WIDTH * 0.12, HORIZON + 1, 1.08)
+  drawIsland(distantContext, WIDTH * 0.48, HORIZON + 2, 0.7)
+  drawLighthouse(distantContext, WIDTH * 0.88, HORIZON + 1, 0.9)
+
+  const sea = backgroundCanvas()
+  const seaContext = sea.getContext('2d')
+  if (!seaContext) throw new Error('无法创建海面缓存')
+  const seaGradient = seaContext.createLinearGradient(0, HORIZON, 0, HEIGHT)
+  seaGradient.addColorStop(0, '#759598')
+  seaGradient.addColorStop(0.22, '#5b7f86')
+  seaGradient.addColorStop(0.68, '#466f78')
+  seaGradient.addColorStop(1, '#31555f')
+  seaContext.fillStyle = seaGradient
+  seaContext.fillRect(0, HORIZON, WIDTH, HEIGHT - HORIZON)
+
+  const reflection = seaContext.createLinearGradient(sunX, HORIZON, sunX, HEIGHT)
+  reflection.addColorStop(0, 'rgba(255, 214, 154, .48)')
+  reflection.addColorStop(0.55, 'rgba(244, 198, 141, .18)')
+  reflection.addColorStop(1, 'rgba(216, 170, 164, 0)')
+  seaContext.fillStyle = reflection
+  seaContext.beginPath()
+  seaContext.moveTo(sunX - sunSize * 0.72, HORIZON)
+  seaContext.lineTo(sunX + sunSize * 0.72, HORIZON)
+  seaContext.lineTo(sunX + sunSize * 1.6, HEIGHT)
+  seaContext.lineTo(sunX - sunSize * 1.6, HEIGHT)
+  seaContext.closePath()
+  seaContext.fill()
+
+  seaContext.strokeStyle = 'rgba(211, 226, 215, .68)'
+  seaContext.lineWidth = 1.25
+  for (const side of [-1, 1]) {
+    seaContext.beginPath()
+    seaContext.moveTo(WIDTH / 2 + side * WIDTH * 0.13, HORIZON)
+    seaContext.lineTo(WIDTH / 2 + side * WIDTH * 0.49, HEIGHT)
+    seaContext.stroke()
+  }
+
+  BACKGROUND_CACHE = { key, sky, sea, distant, sunX, sunSize }
+  return BACKGROUND_CACHE
+}
+
 function drawBackground(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   reducedMotion: boolean
 ): void {
   const motionElapsed = reducedMotion ? 0 : state.elapsed
-  const gradient = ctx.createLinearGradient(0, 0, 0, HORIZON + 38)
-  gradient.addColorStop(0, '#d8aaa4')
-  gradient.addColorStop(0.45, '#e9b7a7')
-  gradient.addColorStop(0.78, '#f4c68d')
-  gradient.addColorStop(1, '#ffdca1')
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, WIDTH, HORIZON + 38)
-
-  const sunSize = Math.min(WIDTH * 0.18, HEIGHT * 0.24)
-  const sunX = WIDTH * 0.77
-  const sunY = HORIZON * (WIDTH / HEIGHT > 1 ? 0.42 : 0.6)
-  ctx.fillStyle = 'rgba(255, 215, 146, .17)'
-  for (let index = 3; index >= 1; index--) {
-    ctx.beginPath()
-    ctx.arc(sunX, sunY, sunSize * (1.05 + index * 0.26), 0, Math.PI * 2)
-    ctx.fill()
-  }
-  const sunGradient = ctx.createLinearGradient(sunX, sunY - sunSize, sunX, sunY + sunSize)
-  sunGradient.addColorStop(0, '#ffe2aa')
-  sunGradient.addColorStop(0.62, '#f4c68d')
-  sunGradient.addColorStop(1, '#d8aaa4')
-  ctx.fillStyle = sunGradient
-  ctx.beginPath()
-  ctx.arc(sunX, sunY, sunSize, 0, Math.PI * 2)
-  ctx.fill()
+  const cache = getBackgroundCache()
+  ctx.drawImage(cache.sky, 0, 0)
 
   const drift = motionElapsed * 1.8
   drawCloud(ctx, ((WIDTH * 0.1 - drift * 0.08) % (WIDTH + 210)) - 120, HORIZON * 0.35, 1.05)
@@ -166,52 +291,25 @@ function drawBackground(
 
   ctx.fillStyle = 'rgba(255, 239, 201, .38)'
   for (let index = 0; index < 8; index++) {
-    const x = (sunX - 95 + ((motionElapsed * 6 + index * 31) % 190))
-    ctx.fillRect(x, sunY + sunSize * 0.82 + (index % 3) * 5, 46 + (index % 2) * 24, 3)
+    const x = (cache.sunX - 95 + ((motionElapsed * 6 + index * 31) % 190))
+    const sunY = HORIZON * (WIDTH / HEIGHT > 1 ? 0.42 : 0.6)
+    ctx.fillRect(
+      x,
+      sunY + cache.sunSize * 0.82 + (index % 3) * 5,
+      46 + (index % 2) * 24,
+      3
+    )
   }
 
   ctx.save()
   ctx.translate(Math.sin(motionElapsed * 0.06) * 2.5, 0)
-  drawIsland(ctx, WIDTH * 0.12, HORIZON + 1, 1.08)
-  drawIsland(ctx, WIDTH * 0.48, HORIZON + 2, 0.7)
-  drawLighthouse(ctx, WIDTH * 0.88, HORIZON + 1, 0.9)
+  ctx.drawImage(cache.distant, 0, 0)
   ctx.restore()
 
   drawFestivalFlags(ctx, motionElapsed)
-
-  const sea = ctx.createLinearGradient(0, HORIZON, 0, HEIGHT)
-  sea.addColorStop(0, '#759598')
-  sea.addColorStop(0.22, '#5b7f86')
-  sea.addColorStop(0.68, '#466f78')
-  sea.addColorStop(1, '#31555f')
-  ctx.fillStyle = sea
-  ctx.fillRect(0, HORIZON, WIDTH, HEIGHT - HORIZON)
-
+  ctx.drawImage(cache.sea, 0, 0)
   drawWaveBands(ctx, motionElapsed)
-
-  const reflection = ctx.createLinearGradient(sunX, HORIZON, sunX, HEIGHT)
-  reflection.addColorStop(0, 'rgba(255, 214, 154, .48)')
-  reflection.addColorStop(0.55, 'rgba(244, 198, 141, .18)')
-  reflection.addColorStop(1, 'rgba(216, 170, 164, 0)')
-  ctx.fillStyle = reflection
-  ctx.beginPath()
-  ctx.moveTo(sunX - sunSize * 0.72, HORIZON)
-  ctx.lineTo(sunX + sunSize * 0.72, HORIZON)
-  ctx.lineTo(sunX + sunSize * 1.6, HEIGHT)
-  ctx.lineTo(sunX - sunSize * 1.6, HEIGHT)
-  ctx.closePath()
-  ctx.fill()
-
-  ctx.strokeStyle = 'rgba(211, 226, 215, .68)'
-  ctx.lineWidth = 1.25
-  for (const side of [-1, 1]) {
-    ctx.beginPath()
-    ctx.moveTo(WIDTH / 2 + side * WIDTH * 0.13, HORIZON)
-    ctx.lineTo(WIDTH / 2 + side * WIDTH * 0.49, HEIGHT)
-    ctx.stroke()
-  }
-
-  drawOceanGlints(ctx, motionElapsed, sunX)
+  drawOceanGlints(ctx, motionElapsed, cache.sunX)
 }
 
 function drawCloud(

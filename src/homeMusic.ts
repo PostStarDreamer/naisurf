@@ -21,7 +21,7 @@ export class HomeMusicPlayer {
     this.targetVolume = clampVolume(volume)
     this.audio = new Audio(source)
     this.audio.loop = true
-    this.audio.preload = 'auto'
+    this.audio.preload = 'none'
     this.audio.setAttribute('playsinline', '')
     this.audio.volume = this.targetVolume
     this.audio.id = 'naisurf-home-music'

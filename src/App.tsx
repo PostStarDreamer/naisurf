@@ -5,6 +5,7 @@ import {
   type HomeMusicStatus
 } from './homeMusic'
 import { GameScreen } from './components/GameScreen'
+import { WebpImage } from './components/WebpImage'
 import {
   DonationModal,
   FeedbackModal,
@@ -66,6 +67,21 @@ function BrandMark() {
 
 function MilkIcon() {
   return <span className="milk-dot" aria-hidden="true" />
+}
+
+function preloadHomeArtwork(): void {
+  const paths = [
+    ...CHARACTERS.map((character) => character.showcaseWebp),
+    'assets/monster-hero-side.webp'
+  ]
+  for (const path of paths) {
+    const image = new Image()
+    image.decoding = 'async'
+    image.src = `${import.meta.env.BASE_URL}${path}`.replace(
+      /([^:]\/)\/+/g,
+      '$1'
+    )
+  }
 }
 
 function SettingsIcon() {
@@ -172,6 +188,7 @@ export function App() {
   const toastTimer = useRef<number | null>(null)
   const audioRef = useRef<AudioEngine | null>(null)
   const homeMusicRef = useRef<HomeMusicPlayer | null>(null)
+  const previousScreenRef = useRef<Screen>('home')
   const saveRef = useRef(save)
   saveRef.current = save
 
@@ -235,8 +252,43 @@ export function App() {
 
   useEffect(() => {
     homeMusic.setStatusListener(setMusicStatus)
-    void homeMusic.startHome()
   }, [homeMusic])
+
+  useEffect(() => {
+    if (screen !== 'home') return
+    let idleId: number | undefined
+    let timeoutId: number | undefined
+    let disposed = false
+
+    const startMusic = () => {
+      idleId = undefined
+      timeoutId = undefined
+      if (!disposed && homeMusic.getStatus() !== 'playing') {
+        void homeMusic.startHome()
+      }
+    }
+    const scheduleMusic = () => {
+      if (disposed) return
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(startMusic, { timeout: 1400 })
+      } else {
+        timeoutId = window.setTimeout(startMusic, 800)
+      }
+    }
+
+    if (document.readyState === 'complete') {
+      scheduleMusic()
+    } else {
+      window.addEventListener('load', scheduleMusic, { once: true })
+    }
+
+    return () => {
+      disposed = true
+      window.removeEventListener('load', scheduleMusic)
+      if (idleId !== undefined) window.cancelIdleCallback(idleId)
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
+    }
+  }, [homeMusic, screen])
 
   useEffect(() => {
     const retryMusic = (event: Event) => {
@@ -260,18 +312,34 @@ export function App() {
       void audio.startGameMusic()
     } else {
       audio.stopMusic()
-      void homeMusic.startHome()
+      if (previousScreenRef.current === 'game') {
+        void homeMusic.startHome()
+      }
     }
+    previousScreenRef.current = screen
   }, [audio, homeMusic, screen])
 
   useEffect(() => {
+    if (screen !== 'game') return
+    const timer = window.setTimeout(preloadHomeArtwork, 1000)
+    return () => window.clearTimeout(timer)
+  }, [screen])
+
+  useEffect(() => {
     const updatePageAudio = () => {
-      audio.setPageMuted(document.hidden)
+      if (document.hidden) {
+        audio.stopMusic()
+        audio.setChaseAmbience(false)
+        audio.setPageMuted(true)
+      } else {
+        audio.setPageMuted(false)
+        if (screen === 'game') void audio.startGameMusic()
+      }
       homeMusic.setPageHidden(document.hidden)
     }
     document.addEventListener('visibilitychange', updatePageAudio)
     return () => document.removeEventListener('visibilitychange', updatePageAudio)
-  }, [audio, homeMusic])
+  }, [audio, homeMusic, screen])
 
   useEffect(() => {
     return () => {
@@ -548,17 +616,25 @@ export function App() {
             <div className="sun-disc" />
             <div className="cloud-bank bank-one" />
             <div className="cloud-bank bank-two" />
-            <img
+            <WebpImage
               className="hero-monster"
-              src={`${import.meta.env.BASE_URL}assets/monster-hero-side.png`}
+              src="assets/monster-hero-side.png"
+              webp="assets/monster-hero-side.webp"
               alt="黄色奶鲨"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
             />
             <div className="character-spotlight">
               <div className="spotlight-ring" />
-              <img
+              <WebpImage
                 className="hero-character"
-                src={`${import.meta.env.BASE_URL}${selectedCharacter.showcaseImage}`}
+                src={selectedCharacter.showcaseImage}
+                webp={selectedCharacter.showcaseWebp}
                 alt={selectedCharacter.name}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
               />
               <div className="surfboard" />
             </div>
@@ -634,9 +710,12 @@ export function App() {
               </div>
             </div>
             <div className="launch-runner">
-              <img
-                src={`${import.meta.env.BASE_URL}${selectedCharacter.showcaseImage}`}
+              <WebpImage
+                src={selectedCharacter.showcaseImage}
+                webp={selectedCharacter.showcaseWebp}
                 alt={selectedCharacter.name}
+                loading="lazy"
+                decoding="async"
               />
               <div>
                 <small>当前浪友</small>
@@ -677,9 +756,12 @@ export function App() {
                     {String(CHARACTERS.indexOf(character) + 1).padStart(2, '0')}
                   </span>
                   <div className="character-image-wrap">
-                    <img
-                      src={`${import.meta.env.BASE_URL}${character.showcaseImage}`}
+                    <WebpImage
+                      src={character.showcaseImage}
+                      webp={character.showcaseWebp}
                       alt={character.name}
+                      loading="lazy"
+                      decoding="async"
                     />
                     {!unlocked && <span className="lock-badge">锁定</span>}
                   </div>
@@ -702,9 +784,12 @@ export function App() {
 
         <section className="monster-section">
           <div className="monster-art">
-            <img
-              src={`${import.meta.env.BASE_URL}assets/monster-hero-side.png`}
+            <WebpImage
+              src="assets/monster-hero-side.png"
+              webp="assets/monster-hero-side.webp"
               alt="黄色奶鲨的像素形象"
+              loading="lazy"
+              decoding="async"
             />
             <div className="monster-stamp">FAST<br />CHOMP</div>
           </div>
@@ -743,7 +828,7 @@ export function App() {
         <div>
           {installPrompt && <button onClick={installPwa}>安装到设备</button>}
           <button onClick={() => setGuideOpen(true)}>玩法说明</button>
-          <span>v1.6</span>
+          <span>v1.7</span>
         </div>
       </footer>
 
