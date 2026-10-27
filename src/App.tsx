@@ -69,18 +69,56 @@ function MilkIcon() {
   return <span className="milk-dot" aria-hidden="true" />
 }
 
-function preloadHomeArtwork(): void {
-  const paths = [
+async function warmOfflineAssets(): Promise<void> {
+  if (!('caches' in window)) return
+  const imagePaths = [
     ...CHARACTERS.map((character) => character.showcaseWebp),
-    'assets/monster-hero-side.webp'
+    ...CHARACTERS.map((character) => character.surfWebp),
+    'assets/monster-hero-side.webp',
+    'assets/monster-lure-three-quarter.game.webp',
+    'assets/monster-capture-back-three-quarter.game.webp',
+    'assets/monster-recoil-three-quarter.game.webp',
+    'assets/monster-chase-closed-front.game.webp',
+    'assets/monster-chase-open-front.game.webp',
+    'assets/objects/rock.svg',
+    'assets/objects/buoy.svg',
+    'assets/objects/rival.svg',
+    'assets/objects/coin.svg',
+    'assets/objects/heart.svg',
+    'assets/objects/boost.svg',
+    'assets/objects/shield.svg',
+    'assets/objects/slime.svg',
+    'assets/net.svg'
   ]
-  for (const path of paths) {
-    const image = new Image()
-    image.decoding = 'async'
-    image.src = `${import.meta.env.BASE_URL}${path}`.replace(
+  const assetUrl = (path: string) =>
+    `${import.meta.env.BASE_URL}${path}`.replace(
       /([^:]\/)\/+/g,
       '$1'
     )
+  const imageUrls = [...new Set(imagePaths)].map(assetUrl)
+
+  try {
+    const imageCache = await caches.open('naisurf-images-v1')
+    for (let index = 0; index < imageUrls.length; index += 4) {
+      await Promise.all(
+        imageUrls.slice(index, index + 4).map(async (url) => {
+          const response = await fetch(url)
+          if (response.ok) await imageCache.put(url, response)
+        })
+      )
+    }
+  } catch {
+    // Playback remains online-only if the browser refuses CacheStorage.
+  }
+
+  try {
+    const audioCache = await caches.open('naisurf-audio-v1')
+    const response = await fetch(assetUrl('audio/ocean-theme.mp3'))
+    if (response.ok) {
+      await audioCache.put(assetUrl('audio/ocean-theme.mp3'), response)
+    }
+  } catch {
+    // The game soundtrack is procedural and still works without cached home music.
   }
 }
 
@@ -321,7 +359,7 @@ export function App() {
 
   useEffect(() => {
     if (screen !== 'game') return
-    const timer = window.setTimeout(preloadHomeArtwork, 1000)
+    const timer = window.setTimeout(() => void warmOfflineAssets(), 1000)
     return () => window.clearTimeout(timer)
   }, [screen])
 
