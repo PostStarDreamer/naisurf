@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getMode } from '../data'
 import {
   MAX_REVIVES,
@@ -113,6 +113,18 @@ export function GameScreen({
     }
     return true
   }
+  const reportFinishedRun = useCallback((): boolean => {
+    const state = gameRef.current
+    if (!state.result || reportedRef.current) return false
+    reportedRef.current = true
+    setHud(snapshotGame(state, walletBalanceRef.current))
+    audio.setChaseAmbience(false)
+    onFinish(state.result)
+    void audio.sfx(
+      state.result.reason === 'finished' ? 'capture' : 'gameover'
+    )
+    return true
+  }, [audio, onFinish])
 
   useEffect(() => {
     walletBalanceRef.current = milkCoins
@@ -210,6 +222,11 @@ export function GameScreen({
         return
       }
 
+      if (state.result) {
+        reportFinishedRun()
+        return
+      }
+
       if (
         state.paused ||
         state.downed ||
@@ -257,7 +274,8 @@ export function GameScreen({
         },
         dt
       )
-      if (captureLifeChange(state.lives)) {
+      const terminalStateReached = state.downed || state.ended
+      if (captureLifeChange(state.lives) || terminalStateReached) {
         hudElapsed = 0
         setHud(snapshotGame(state, walletBalanceRef.current))
       }
@@ -295,12 +313,7 @@ export function GameScreen({
         setHud(snapshotGame(state, walletBalanceRef.current))
       }
 
-      if (state.result && !reportedRef.current) {
-        reportedRef.current = true
-        setHud(snapshotGame(state, walletBalanceRef.current))
-        audio.setChaseAmbience(false)
-        onFinish(state.result)
-        void audio.sfx(state.result.reason === 'finished' ? 'capture' : 'gameover')
+      if (reportFinishedRun()) {
         return
       }
 
@@ -316,9 +329,9 @@ export function GameScreen({
     fontsLoaded,
     hud.paused,
     hud.phase,
-    onFinish,
     onWalletTransactions,
     pageHidden,
+    reportFinishedRun,
     rulesOpen,
     settings
   ])
@@ -767,7 +780,7 @@ export function GameScreen({
               <div className="revive-secondary-actions">
                 <button className="secondary-button" onClick={() => {
                   endDownedRun(gameRef.current)
-                  setHud(snapshotGame(gameRef.current, walletBalanceRef.current))
+                  reportFinishedRun()
                 }}>结束本局</button>
                 <button className="text-button muted" onClick={onExit}>返回岸边</button>
               </div>

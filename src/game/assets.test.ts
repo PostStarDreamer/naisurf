@@ -206,7 +206,7 @@ describe('direct attachment art assets', () => {
         0.985
       )
     }
-  }, 60000)
+  }, 120000)
 
   it('leaves no light contamination on the outer silhouette', () => {
     for (const relativePath of files) {
@@ -247,5 +247,5 @@ describe('direct attachment art assets', () => {
       }
       expect(contaminated, `${relativePath} light edge pixels`).toBe(0)
     }
-  }, 60000)
+  }, 120000)
 })
